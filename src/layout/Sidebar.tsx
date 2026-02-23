@@ -1,38 +1,56 @@
-import { Outlet, Link } from 'react-router-dom'
-// ThirdWebConnect removed for testing without login
-// import WalletConnect from '../components/WalletConnect'
+import { Outlet, NavLink } from 'react-router-dom'
+import { useWallet } from '../context/WalletContext'
+import WalletConnect from '../components/WalletConnect'
+
+const routes = [
+  { name: 'Create iQube', path: '/app/create' },
+  { name: 'Content Qube', path: '/app/contentqube' },
+  { name: 'Transfer',     path: '/app/transfer' },
+  { name: 'Decrypt',      path: '/app/decrypt' },
+  { name: 'Cross Chain',  path: '/app/crosschain' },
+]
 
 export default function Sidebar() {
-  const routes = [
-    { id: 1, name: 'Home', path: '/' },
-    { id: 2, name: 'Data Qube', path: 'dataqube' },
-    { id: 3, name: 'Content Qube', path: 'contentqube' },
-    { id: 4, name: 'Agent Qube', path: 'agent' },
-    { id: 6, name: 'Transfer Qube', path: 'transfer' },
-    { id: 7, name: 'Cross Chain', path: 'crosschain' },
-  ]
+  const { address } = useWallet()
 
   return (
-    <div className="">
-      {/* sidebar */}
-      <div className="fixed top-0 left-0 w-[300px] h-full bg-white p-[20px]">
-        <p className="text-[20px] font-bold mb-[70px]">Navigation</p>
+    <div className="flex min-h-screen bg-slate-900">
+      {/* Sidebar */}
+      <div className="fixed top-0 left-0 w-64 h-full bg-slate-950 border-r border-white/10 flex flex-col p-5">
+        <p className="text-white font-bold text-lg mb-8">iQube</p>
 
-        {routes.map((route) => (
-          <Link
-            to={route.path}
-            key={route.id}
-            className="text-black hover:font-bold block mb-[30px] hover:text-blue-500 hover:underline hover:bg-gray-100 p-[10px] rounded-[10px]"
-          >
-            {route.name}
-          </Link>
-        ))}
+        <nav className="flex-1 space-y-1">
+          {routes.map((route) => (
+            <NavLink
+              key={route.path}
+              to={route.path}
+              className={({ isActive }) =>
+                `block px-3 py-2 rounded-lg text-sm transition-colors ${
+                  isActive
+                    ? 'bg-indigo-600 text-white font-medium'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                }`
+              }
+            >
+              {route.name}
+            </NavLink>
+          ))}
+        </nav>
 
-        {/* <WalletConnect /> */}
+        <div className="mt-auto pt-4 border-t border-white/10">
+          {address ? (
+            <p className="text-xs text-slate-500 truncate" title={address}>
+              {address.slice(0, 6)}…{address.slice(-4)}
+            </p>
+          ) : null}
+          <div className="mt-2">
+            <WalletConnect />
+          </div>
+        </div>
       </div>
-      {/* content */}
 
-      <div className="ml-[300px]">
+      {/* Content */}
+      <div className="ml-64 flex-1">
         <Outlet />
       </div>
     </div>

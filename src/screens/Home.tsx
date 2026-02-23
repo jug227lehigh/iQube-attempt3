@@ -15,7 +15,7 @@ export default function Home() {
       <WalletConnect />
       {address && (
         <div className="mt-[20px]">
-          <Link to="/thirdweb">App (mint, transfer, etc.)</Link>
+          <Link to="/app">Open App</Link>
         </div>
       )}
     </div>
