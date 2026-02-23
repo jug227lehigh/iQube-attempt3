@@ -1,19 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useActiveAccount } from 'thirdweb/react'
 import { Link } from 'react-router-dom'
 import {
   useMetaQubeLocation,
   useMintQube,
-  useGetEncryptionKey,
-  ownerOf,
-} from '../../utilities/contractUtils'
+  useOwnerOf,
+} from '../../hooks/contractHooks'
 import PolygonNFTInterface from '../../utilities/MetaContract'
 import { ABI } from '../../utilities/ABI'
 
 export default function WithThirdWebClient() {
-  const _account = useActiveAccount()
-  // const [isSubmitted, setIsSubmitted] = useState(false)
-  const [tokenId, setTokenId] = useState<any>(0)
+  const [tokenId, setTokenId] = useState<string | number>(0)
   const [metaQubeLocation, setMetaQubeLocation] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -24,7 +20,6 @@ export default function WithThirdWebClient() {
 
   useEffect(() => {
     if (metaQubeLocationData) {
-      // console.log('metaQubeLocationData', metaQubeLocationData)
       setMetaQubeLocation(metaQubeLocationData)
     } else {
       setMetaQubeLocation('')
@@ -32,17 +27,12 @@ export default function WithThirdWebClient() {
     setIsLoading(metaQubeLocationLoading)
   }, [metaQubeLocationData, metaQubeLocationLoading])
 
-  const handleSubmit = (event: any) => {
+  const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
-    // setIsSubmitted(true)
   }
 
-  const { mintQube, transactionResult } = useMintQube(_account, '')
-  const getEncryptionKey = useGetEncryptionKey(tokenId)
-  console.log('getEncryptionKey', getEncryptionKey)
-
-  const owner = ownerOf(tokenId)
-  console.log('owner', owner?.data)
+  const { mintQube, transactionResult } = useMintQube(metaQubeLocation ?? '', '')
+  useOwnerOf(tokenId)
 
   const getEncKey = async () => {
     try {
@@ -50,9 +40,10 @@ export default function WithThirdWebClient() {
         '0x031868250e6295f5174ca0Cbe86527750f02eCAd',
         ABI,
       )
-      const owner = await encKey.ownerOf(tokenId)
+      const tokenIdStr = String(tokenId)
+      const owner = await encKey.ownerOf(tokenIdStr)
       console.log('owner', owner)
-      const key = await encKey.getEncryptionKey(tokenId)
+      const key = await encKey.getEncryptionKey(tokenIdStr)
       console.log('key', key)
     } catch (error) {
       console.log('error', error)
@@ -84,7 +75,7 @@ export default function WithThirdWebClient() {
           </form>
 
           <hr className="my-[10px]" />
-          <button onClick={mintQube}>Mint Qube.</button>
+          <button type="button" onClick={() => mintQube()}>Mint Qube.</button>
           <p className="text-[black] text-[12px]">
             transactionResult: {transactionResult?.transactionHash}
           </p>

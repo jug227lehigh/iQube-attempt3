@@ -1,6 +1,6 @@
 import React, { useState, FormEvent } from 'react'
-import { useActiveAccount } from 'thirdweb/react'
-import { useMintQube } from '../../../utilities/contractUtils'
+import { useWallet } from '../../../context/WalletContext'
+import { useMintQube } from '../../../hooks/contractHooks'
 import { pinata } from '../../../utilities/pinata-config'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
@@ -29,7 +29,7 @@ interface MediaQubeProfile {
 }
 
 const MediaQube: React.FC = () => {
-  const account = useActiveAccount()
+  const { address } = useWallet()
   const [metaQubeLocation, setMetaQubeLocation] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -77,8 +77,8 @@ const MediaQube: React.FC = () => {
     setError('')
 
     try {
-      if (!account) {
-        throw new Error('Please connect your thirdweb wallet')
+      if (!address) {
+        throw new Error('Please connect your wallet')
       }
 
       if (!mediaQubeProfile.blakQube) {
@@ -131,7 +131,7 @@ const MediaQube: React.FC = () => {
       setMetaQubeLocation(url)
       setEncryptedURL(url)
 
-      mintQube()
+      await mintQube(url, key)
       setIsMinted(true)
     } catch (error) {
       setError(

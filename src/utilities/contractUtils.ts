@@ -1,137 +1,104 @@
 import {
- getContract,
- createThirdwebClient,
- prepareContractCall,
-} from "thirdweb";
-import { polygonAmoy } from "thirdweb/chains";
-import {
- useReadContract,
- useSendTransaction,
- useActiveAccount,
-} from "thirdweb/react";
+  createPublicClient,
+  createWalletClient,
+  http,
+  custom,
+  type Hash,
+  type Address,
+} from "viem";
+import { polygonAmoy } from "viem/chains";
 import constants from "./constants";
+import { iqubeAbi } from "./iqubeAbi";
 
-const client = createThirdwebClient({
- clientId: "8dc8e3e2452cdf667e0452a5be2906e7",
+const transport = http(constants.RPC_POLYGON_AMOY);
+
+export const publicClient = createPublicClient({
+  transport,
+  chain: polygonAmoy,
 });
 
-export const contract = getContract({
- client,
- address: constants.AMOY,
- chain: polygonAmoy,
-});
+const contractAddress = constants.AMOY as Address;
 
-export const useMetaQubeLocation = (tokenId: any) => {
- return useReadContract({
-  contract,
-  method: "function getMetaQubeLocation(uint256 tokenId) view returns (string)",
-  params: [BigInt(tokenId)],
- });
-};
+// ——— Read helpers (no wallet needed) ———
 
-export const useMintQube = (metaQubeLocation: any, encryptionKey: any) => {
- const {
-  mutate: sendTx,
-  data: transactionResult,
-  error: transactionError,
- } = useSendTransaction();
- console.log("encryptionKey => ", encryptionKey);
-
- if (!metaQubeLocation || !encryptionKey)
-  return {
-   mintQube: () => {},
-   transactionResult: null,
-   transactionError: null,
-  };
-
- const mintQube = () => {
-  const transaction = prepareContractCall({
-   contract,
-   method: "function mintQube(string memory uri, string memory encryptionKey)",
-   params: [metaQubeLocation, encryptionKey],
+export async function getMetaQubeLocation(tokenId: bigint | number): Promise<string> {
+  return publicClient.readContract({
+    address: contractAddress,
+    abi: iqubeAbi,
+    functionName: "getMetaQubeLocation",
+    args: [BigInt(tokenId)],
   });
-  sendTx(transaction);
- };
+}
 
- console.log("transactionResult => ", transactionResult);
- return { mintQube, transactionResult, transactionError };
-};
-
-export const useGetEncryptionKey = (tokenId: any) => {
- try {
-  console.log("tokenId => ", tokenId);
-  const {
-   mutate: sendTx,
-   data: encTxData,
-   error: encTxError,
-  } = useSendTransaction();
-
-  const _getEncryptionKey = () => {
-   const transaction = prepareContractCall({
-    contract,
-    method: "function getEncryptionKey(uint256 tokenId) view returns (string)",
-    params: [BigInt(tokenId)],
-   });
-
-   sendTx(transaction);
-  };
-
-  return { _getEncryptionKey, encTxData, encTxError };
- } catch (error) {
-  console.log("error => ", error);
-  throw error;
- }
-};
-
-export const useGetEncryptionKeyII = (tokenId: any) => {
- try {
-  const {
-   data: _encryptionKey,
-   isLoading: encKeyIsLoading,
-   error: encKeyError,
-  } = useReadContract({
-   contract,
-   method: "function getEncryptionKey(uint256 tokenId) view returns (string)",
-   params: [BigInt(tokenId)],
+export async function getEncryptionKey(tokenId: bigint | number): Promise<string> {
+  return publicClient.readContract({
+    address: contractAddress,
+    abi: iqubeAbi,
+    functionName: "getEncryptionKey",
+    args: [BigInt(tokenId)],
   });
-  return { _encryptionKey, encKeyIsLoading, encKeyError };
- } catch (error) {
-  console.log("error => ", error);
- }
-};
+}
 
-export const ownerOf = (tokenId: any) => {
- return useReadContract({
-  contract,
-  method: "function ownerOf(uint256 tokenId) view returns (address)",
-  params: [BigInt(tokenId)],
- });
-};
+export async function ownerOf(tokenId: bigint | number): Promise<Address> {
+  return publicClient.readContract({
+    address: contractAddress,
+    abi: iqubeAbi,
+    functionName: "ownerOf",
+    args: [BigInt(tokenId)],
+  });
+}
 
-export const useTransferQube = (tokenId: any, to: any) => {
- try {
-  const {
-   mutate: sendTx,
-   data: transactionResult,
-   error: transactionError,
-  } = useSendTransaction();
+function getBrowserProvider(): unknown {
+  if (typeof window === "undefined") return undefined;
+  return (window as unknown as { ethereum?: unknown }).ethereum;
+}
 
-  const transfer = () => {
-   const transaction = prepareContractCall({
-    contract,
-    method: "function transferQube(address to, uint256 tokenId)",
-    params: [to, BigInt(tokenId)],
-   });
-   console.log("transaction => ", transaction);
-   sendTx(transaction);
-  };
-  return { transfer, transactionResult, transactionError };
- } catch (error) {
-  console.log("error => ", error);
- }
-};
+// ——— Write helpers (need wallet; call from component with useWallet) ———
 
-export const getThirdWebPublicKey = () => {
- const publicKey = useActiveAccount();
- return publicKey?.address;
-};
+export async function mintQube(
+  metaQubeLocation: string,
+  encryptionKey: string
+): Promise<Hash> {
+  const provider = getBrowserProvider();
+  if (!provider) {
+    throw new Error("Wallet not available");
+  }
+  const walletClient = createWalletClient({
+    transport: custom(provider),
+    chain: polygonAmoy,
+  });
+  const [account] = await walletClient.getAddresses();
+  if (!account) throw new Error("No account connected");
+  const hash = await walletClient.writeContract({
+    address: contractAddress,
+    abi: iqubeAbi,
+    functionName: "mintQube",
+    args: [metaQubeLocation, encryptionKey],
+    account,
+  });
+  return hash;
+}
+
+export async function transferQube(
+  to: Address,
+  tokenId: bigint | number
+): Promise<Hash> {
+  const provider = getBrowserProvider();
+  if (!provider) {
+    throw new Error("Wallet not available");
+  }
+  const walletClient = createWalletClient({
+    transport: custom(provider),
+    chain: polygonAmoy,
+  });
+  const [account] = await walletClient.getAddresses();
+  if (!account) throw new Error("No account connected");
+  const hash = await walletClient.writeContract({
+    address: contractAddress,
+    abi: iqubeAbi,
+    functionName: "transferQube",
+    args: [to, BigInt(tokenId)],
+    account,
+  });
+  return hash;
+}

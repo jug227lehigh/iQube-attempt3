@@ -2,25 +2,20 @@ import { Link } from 'react-router-dom'
 import PolygonNFTInterface from '../../utilities/MetaContract'
 import { ABI } from '../../utilities/ABI'
 import { useState, useEffect, FormEvent } from 'react'
-import { useActiveAccount } from 'thirdweb/react'
-import { Account } from 'thirdweb/wallets'
+import { useWallet } from '../../context/WalletContext'
 
 const Dashboard = () => {
-  const [activeAccount, setActiveAccount] = useState(null)
+  const [activeAccount, setActiveAccount] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [mapTitle, setMapTitle] = useState('Map Address')
   const [destination, setDestination] = useState('')
   const [tokenIdII, setTokenIdII] = useState('')
   const [transferBtn, setTransferBtn] = useState('Transfer')
-  const [show3rdWeb, setShow3rdWeb] = useState<Account | undefined>(undefined)
-
-  const _account = useActiveAccount()
+  const { address: walletAddress } = useWallet()
 
   useEffect(() => {
     getActiveAddress()
-    console.log(_account)
-    setShow3rdWeb(_account)
-  }, [_account])
+  }, [])
 
   const getActiveAddress = async () => {
     try {
@@ -86,7 +81,7 @@ const Dashboard = () => {
           Welcome,
           <span className="font-[700]">
             {' '}
-            {activeAccount || show3rdWeb?.address}
+            {activeAccount || walletAddress}
           </span>
         </h3>
         <div className="flex">

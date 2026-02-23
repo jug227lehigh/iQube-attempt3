@@ -1,6 +1,6 @@
 import React, { useState, FormEvent } from 'react'
-import { useActiveAccount } from 'thirdweb/react'
-import { useMintQube } from '../../../utilities/contractUtils'
+import { useWallet } from '../../../context/WalletContext'
+import { useMintQube } from '../../../hooks/contractHooks'
 import { pinata } from '../../../utilities/pinata-config'
 import axios from 'axios'
 import { Upload } from 'lucide-react'
@@ -26,7 +26,7 @@ interface MetadataFields {
 }
 
 const ContentQube: React.FC = () => {
-  const account = useActiveAccount()
+  const { address } = useWallet()
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [metadataFields, setMetadataFields] = useState<MetadataFields>({
     metaQubeIdentifier: '',
@@ -64,8 +64,9 @@ const ContentQube: React.FC = () => {
 
   const handleMint = async (e: FormEvent) => {
     e.preventDefault()
-    if (!selectedFile || !account) {
-      setError('Missing required information')
+    // Account check removed for testing
+    if (!selectedFile) {
+      setError('Please select a file')
       return
     }
 
@@ -99,7 +100,7 @@ const ContentQube: React.FC = () => {
         blakQubeKey: encryptionData.data,
         blakQubeLocation: encryptionData.data,
         blakQubeIdentifier: `iQube-${Date.now()}`,
-        metaQubeCreator: account.address,
+        metaQubeCreator: address ?? '',
       }
 
       // Create and upload metadata
@@ -125,7 +126,7 @@ const ContentQube: React.FC = () => {
       setMetadataFields(updatedMetadataFields)
 
       // Mint NFT
-      mintQube()
+      await mintQube(url, encryptionData.key)
       setIsMinted(true)
       console.log(transactionResult)
     } catch (error) {

@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react'
-import { useTransferQube } from '../../../utilities/contractUtils'
+import type { Address } from 'viem'
+import { useTransferQube } from '../../../hooks/contractHooks'
 
 const TransferQube = () => {
   const [recipient, setRecipient] = useState('')
@@ -7,23 +8,20 @@ const TransferQube = () => {
   const [isTransferring, setIsTransferring] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
 
-  const { transfer, transactionError } =
-    useTransferQube(tokenId, recipient) ?? {}
+  const toAddress = recipient.trim() ? (recipient as Address) : null
+  const { transfer, transactionError } = useTransferQube(tokenId, toAddress)
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!toAddress || !transfer) return
     setIsTransferring(true)
     setSuccessMessage('')
     try {
-      if (transfer) {
-        transfer()
-        setSuccessMessage(
-          `Successfully transferred Qube ${tokenId} to ${recipient}`,
-        )
-        setRecipient('')
-      } else {
-        throw new Error('Transfer function is not defined')
-      }
+      await transfer()
+      setSuccessMessage(
+        `Successfully transferred Qube ${tokenId} to ${recipient}`,
+      )
+      setRecipient('')
     } catch (error) {
       console.error('Transfer error:', error)
     } finally {

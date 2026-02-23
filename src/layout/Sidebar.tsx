@@ -1,5 +1,6 @@
 import { Outlet, Link } from 'react-router-dom'
-import ThirdWebConnect from '../components/ThirdWebConnect'
+// ThirdWebConnect removed for testing without login
+// import WalletConnect from '../components/WalletConnect'
 
 export default function Sidebar() {
   const routes = [
@@ -27,7 +28,7 @@ export default function Sidebar() {
           </Link>
         ))}
 
-        <ThirdWebConnect />
+        {/* <WalletConnect /> */}
       </div>
       {/* content */}
 

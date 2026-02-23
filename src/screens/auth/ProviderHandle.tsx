@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import ThirdWebConnect from '../../components/ThirdWebConnect'
-import { useActiveAccount } from 'thirdweb/react'
+import WalletConnect from '../../components/WalletConnect'
+import { useWallet } from '../../context/WalletContext'
 import { isValidKnytUsername } from '../../utilities'
 import request, { methods } from '../../utilities/http'
 const ProviderHandle = () => {
@@ -10,15 +10,16 @@ const ProviderHandle = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [btnText, setBtnText] = useState('Map Handle')
-  const _account = useActiveAccount()
+  const { address } = useWallet()
 
   useEffect(() => {
-    console.log(_account)
-    if (_account) {
-      setPublicAddress(_account.address)
-      setIsLoading(false)
+    if (address) {
+      setPublicAddress(address)
+    } else {
+      setPublicAddress('0x0000000000000000000000000000000000000000')
     }
-  }, [_account])
+    setIsLoading(false)
+  }, [address])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -54,7 +55,7 @@ const ProviderHandle = () => {
     return (
       <div className="center-container flex flex-col items-center">
         <p className="text-[11px] text-gray-500">Please Wait...</p>
-        <ThirdWebConnect />
+        <WalletConnect />
       </div>
     )
   }
@@ -92,7 +93,7 @@ const ProviderHandle = () => {
           </Link>
         </form>
         <div className="mt-4 flex justify-center">
-          <ThirdWebConnect />
+          <WalletConnect />
         </div>
       </div>
     </div>

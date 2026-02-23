@@ -1,20 +1,20 @@
 import { useState } from 'react'
 import axios from 'axios'
-import { useActiveAccount } from 'thirdweb/react'
+import { useWallet } from '../../../context/WalletContext'
 import {
   useMetaQubeLocation,
   useGetEncryptionKeyII,
-  ownerOf,
-} from '../../../utilities/contractUtils'
+  useOwnerOf,
+} from '../../../hooks/contractHooks'
 
 export default function DecryptData() {
   const [tokenId, setTokenId] = useState('')
   const [decryptedData, setDecryptedData] = useState('')
   const [btnText, setBtnText] = useState('Decrypt')
   const [error, setError] = useState('')
-  const publicKey = useActiveAccount()
+  const { address: publicKeyAddress } = useWallet()
 
-  const { data: ownerData, isLoading: isOwnerLoading } = ownerOf(tokenId)
+  const { data: ownerData, isLoading: isOwnerLoading } = useOwnerOf(tokenId)
   const { _encryptionKey, encKeyIsLoading, encKeyError } =
     useGetEncryptionKeyII(tokenId) ?? {}
   const { data: location, isLoading: isLocationLoading } = useMetaQubeLocation(
@@ -26,7 +26,7 @@ export default function DecryptData() {
     setBtnText('Decrypting...')
     setError('')
     try {
-      if (publicKey?.address !== ownerData) {
+      if (publicKeyAddress !== ownerData) {
         throw new Error('You are not the owner of this Qube.')
       }
       if (!_encryptionKey) {
@@ -71,7 +71,7 @@ export default function DecryptData() {
           </button>
         </form>
 
-        {tokenId && !isLocationLoading && location && (
+        {tokenId && !isLocationLoading && location !== null && (
           <p className="text-[13px] text-gray-500 my-[20px] text-center">
             QubeLocation:{' '}
             <a
@@ -94,7 +94,7 @@ export default function DecryptData() {
 
         {encKeyError && (
           <p className="text-red-500 mt-[10px] text-[12px] text-center">
-            Error: {encKeyError.message}
+            Error: {encKeyError?.message ?? String(encKeyError)}
           </p>
         )}
 
