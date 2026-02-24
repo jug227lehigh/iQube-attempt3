@@ -620,7 +620,12 @@ function Step5Review({ state, onSubmit, isSubmitting, mintError, txHash }: {
       {txHash && (
         <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
           Minted!{" "}
-          <a href={`https://www.oklink.com/amoy/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline font-semibold">
+          <a
+            href={`https://amoy.polygonscan.com/tx/${txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline font-semibold"
+          >
             View transaction ↗
           </a>
         </div>

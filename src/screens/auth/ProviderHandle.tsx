@@ -34,8 +34,8 @@ const ProviderHandle = () => {
       })
 
       if (req.success) {
-        // redirect to home
-        window.location.href = '/thirdweb'
+        // redirect to main app
+        window.location.href = '/'
       } else {
         setError(req.message || 'An error occurred during the request')
       }
@@ -88,7 +88,7 @@ const ProviderHandle = () => {
           >
             {btnText}
           </button>
-          <Link to="/thirdweb" className="text-blue-500 text-center">
+          <Link to="/" className="text-blue-500 text-center">
             Go to App
           </Link>
         </form>

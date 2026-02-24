@@ -8,7 +8,7 @@ enum constants {
  OK_LINK_BASE_URL = "https://www.oklink.com/",
  OK_LINK_TX_DETAIL_PATH = "/api/v5/explorer/eth/api?module=transaction&action=gettxreceiptstatus&txhash=",
 
- // Public RPCs (workaround for Thirdweb "Account blocked due to plan usage limit")
+  // Public RPCs (avoid provider plan usage limits)
  RPC_POLYGON_AMOY = "https://rpc-amoy.polygon.technology",
  RPC_SEPOLIA = "https://rpc.sepolia.org",
  RPC_AVALANCHE_FUJI = "https://api.avax-test.network/ext/bc/C/rpc",
