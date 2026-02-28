@@ -75,6 +75,9 @@ export async function mintQube(
     functionName: "mintQube",
     args: [metaQubeLocation, encryptionKey],
     account,
+    // Polygon Amoy requires min ~25 gwei tip; default was 1.5 gwei
+    maxPriorityFeePerGas: BigInt(35_000_000_000), // 35 gwei
+    maxFeePerGas: BigInt(50_000_000_000),       // 50 gwei
   });
   return hash;
 }
@@ -99,6 +102,8 @@ export async function transferQube(
     functionName: "transferQube",
     args: [to, BigInt(tokenId)],
     account,
+    maxPriorityFeePerGas: BigInt(35_000_000_000),
+    maxFeePerGas: BigInt(50_000_000_000),
   });
   return hash;
 }
