@@ -5,10 +5,13 @@ import {
   Eye, EyeOff, AlertTriangle, CheckCircle, XCircle,
   Check
 } from "lucide-react";
-import axios from "axios";
 import { useWallet } from "../../context/WalletContext";
 import { useMintQube } from "../../hooks/contractHooks";
 import { pinata } from "../../utilities/pinata-config";
+import EncryptionModule from "../../utilities/encryption";
+import { getEncryptionPublicKey, wrapDek } from "../../utilities/keyWrapping";
+import { supabase, isSupabaseConfigured } from "../../utilities/supabase";
+import { getTokenIdFromMintReceipt } from "../../utilities/contractUtils";
 import {
   type IQubeType, type IQubeCategory, type Visibility,
   type BusinessModel, type AccessPolicy, type BlakQubeField,
@@ -572,8 +575,8 @@ const RISK_META: Record<RiskLevel, { label: string; textColor: string; bg: strin
   critical: { label: "Critical Risk", textColor: "text-red-700",     bg: "bg-red-50",     border: "border-red-300",     icon: <XCircle size={18} /> },
 };
 
-function Step5Review({ state, onSubmit, isSubmitting, mintError, txHash }: {
-  state: WizardState; onSubmit: () => void; isSubmitting: boolean; mintError: string; txHash: string;
+function Step5Review({ state, onSubmit, isSubmitting, mintError, txHash, keyStored }: {
+  state: WizardState; onSubmit: () => void; isSubmitting: boolean; mintError: string; txHash: string; keyStored: boolean | null;
 }) {
   const sensitivity = state.iQubeType ? getDefaultSensitivity(state.iQubeType, state.category ?? "Other" as IQubeCategory) : 5;
   const riskScore = calculateRiskScore(sensitivity, 5, 5);
@@ -618,16 +621,33 @@ function Step5Review({ state, onSubmit, isSubmitting, mintError, txHash }: {
         <div className="mb-6 px-5 py-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{mintError}</div>
       )}
       {txHash && (
-        <div className="mb-6 px-5 py-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
-          Minted!{" "}
-          <a
-            href={`https://amoy.polygonscan.com/tx/${txHash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline font-semibold"
-          >
-            View transaction ↗
-          </a>
+        <div className="mb-6 space-y-3">
+          <div className="px-5 py-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
+            Minted!{" "}
+            <a
+              href={`https://amoy.polygonscan.com/tx/${txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold"
+            >
+              View transaction ↗
+            </a>
+          </div>
+          {keyStored === true && (
+            <div className="px-5 py-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
+              Wrapped key stored in Supabase. Your data is recoverable.
+            </div>
+          )}
+          {keyStored === false && state.fields.length > 0 && (
+            <div className="px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+              Key storage failed. Your encrypted data may not be recoverable.
+            </div>
+          )}
+          {keyStored === null && state.fields.length === 0 && (
+            <div className="px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-sm">
+              No private fields added — nothing to encrypt or store. Add private fields in Step 3 to encrypt data and store keys in Supabase.
+            </div>
+          )}
         </div>
       )}
 
@@ -650,8 +670,9 @@ export default function CreateIQubeWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mintError, setMintError] = useState("");
   const [txHash, setTxHash] = useState("");
+  const [keyStored, setKeyStored] = useState<boolean | null>(null);
 
-  const { mintQube, transactionResult, transactionError } = useMintQube(null, null);
+  const { mintQube, transactionResult, transactionError } = useMintQube();
 
   useEffect(() => {
     if (transactionResult?.transactionHash) setTxHash(transactionResult.transactionHash);
@@ -676,30 +697,30 @@ export default function CreateIQubeWizard() {
     if (!address) { setMintError("Please connect your wallet first."); return; }
     setIsSubmitting(true);
     setMintError("");
+    setKeyStored(null);
     try {
       const blakQubePayload: Record<string, string> = {};
       for (const f of state.fields) blakQubePayload[f.key] = f.value;
 
       let encryptedBlakQube: string;
-      let encryptionKey: string;
+      let dekHex: string | null = null;
+      let wrappedKey: string | null = null;
 
       if (state.fields.length > 0) {
-        try {
-          const { data } = await axios.post("https://iqubes-server.onrender.com/encrypt-member-qube", blakQubePayload);
-          if (!data.success) throw new Error(data.message || "Encryption failed");
-          encryptedBlakQube = data.encryptedData.encryptedBlakQube;
-          encryptionKey = data.encryptedData.key;
-        } catch (encErr: unknown) {
-          const msg = encErr instanceof Error ? encErr.message : String(encErr);
-          if (/FORBIDDEN|plan usage limit/i.test(msg)) {
-            setMintError("Encryption server is over its plan limit. Remove private fields to mint without encryption.");
-            return;
-          }
-          throw encErr;
-        }
+        // Client-side encryption with AES-256-GCM
+        const encrypted = await EncryptionModule.Encrypt(blakQubePayload);
+        encryptedBlakQube = JSON.stringify({
+          iv: encrypted.iv,
+          authTag: encrypted.authTag,
+          encryptedData: encrypted.encryptedData,
+        });
+        dekHex = encrypted.key;
+
+        // Wrap DEK with minter's MetaMask encryption public key
+        const encryptionPubKey = await getEncryptionPublicKey(address);
+        wrappedKey = wrapDek(dekHex, encryptionPubKey);
       } else {
         encryptedBlakQube = "";
-        encryptionKey = "no-blakqube";
       }
 
       const sensitivity = state.iQubeType ? getDefaultSensitivity(state.iQubeType, state.category ?? "Other" as IQubeCategory) : 5;
@@ -723,7 +744,46 @@ export default function CreateIQubeWizard() {
 
       const upload = await pinata.upload.json(metadataJson);
       const metaQubeLocation = `${import.meta.env.VITE_GATEWAY_URL}/ipfs/${upload.IpfsHash}`;
-      await mintQube(metaQubeLocation, encryptionKey);
+
+      if (state.fields.length > 0 && wrappedKey && !isSupabaseConfigured()) {
+        setMintError("Supabase is not configured. Wrapped keys must be stored for encrypted iQubes.");
+        return;
+      }
+
+      const hash = await mintQube(address as `0x${string}`, metaQubeLocation);
+      if (!hash) return;
+
+      // Store wrapped key in Supabase (only for encrypted iQubes)
+      if (state.fields.length > 0 && wrappedKey && supabase) {
+        try {
+          const tokenId = await getTokenIdFromMintReceipt(hash);
+          try {
+            const { error } = await supabase.from("iqube_wrapped_keys").insert({
+              token_id: Number(tokenId),
+              minter_address: address,
+              wrapped_key: wrappedKey,
+              ipfs_hash: upload.IpfsHash,
+            });
+            if (error) {
+              setMintError(`Mint succeeded but key storage failed: ${error.message}. Your data may not be recoverable.`);
+              setKeyStored(false);
+            } else {
+              setKeyStored(true);
+            }
+          } catch (supaErr: unknown) {
+            const msg = supaErr instanceof Error ? supaErr.message : String(supaErr);
+            setMintError(`Mint succeeded but key storage failed: ${msg}. Your data may not be recoverable.`);
+            setKeyStored(false);
+          }
+        } catch (receiptErr: unknown) {
+          setMintError(
+            `Mint succeeded but could not get token ID: ${receiptErr instanceof Error ? receiptErr.message : String(receiptErr)}. Key not stored.`
+          );
+          setKeyStored(false);
+        }
+      } else if (state.fields.length === 0) {
+        setKeyStored(null); // No private fields, nothing to store
+      }
     } catch (err: unknown) {
       setMintError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -747,7 +807,7 @@ export default function CreateIQubeWizard() {
             {step === 1 && <Step2BasicDetails state={state} onChange={update} />}
             {step === 2 && <Step3PrivateData state={state} onChange={update} />}
             {step === 3 && <Step4AccessControl state={state} onChange={update} />}
-            {step === 4 && <Step5Review state={state} onSubmit={handleSubmit} isSubmitting={isSubmitting} mintError={mintError} txHash={txHash} />}
+            {step === 4 && <Step5Review state={state} onSubmit={handleSubmit} isSubmitting={isSubmitting} mintError={mintError} txHash={txHash} keyStored={keyStored} />}
           </div>
           {step < 4 && (
             <NavButtons step={step} onBack={back} onNext={next}

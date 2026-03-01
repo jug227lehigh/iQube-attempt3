@@ -2,8 +2,8 @@
 export const iqubeAbi = [
   {
     inputs: [
+      { internalType: 'address', name: 'to', type: 'address' },
       { internalType: 'string', name: 'uri', type: 'string' },
-      { internalType: 'string', name: 'encryptionKey', type: 'string' },
     ],
     name: 'mintQube',
     outputs: [],
@@ -19,8 +19,8 @@ export const iqubeAbi = [
   },
   {
     inputs: [{ internalType: 'uint256', name: 'tokenId', type: 'uint256' }],
-    name: 'getEncryptionKey',
-    outputs: [{ internalType: 'string', name: '', type: 'string' }],
+    name: 'minterOf',
+    outputs: [{ internalType: 'address', name: '', type: 'address' }],
     stateMutability: 'view',
     type: 'function',
   },

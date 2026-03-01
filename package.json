@@ -13,10 +13,13 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
+    "@metamask/eth-sig-util": "^8.2.0",
     "@metamask/providers": "^17.2.0",
+    "@supabase/supabase-js": "^2.98.0",
     "axios": "^1.7.3",
     "bn.js": "^5.2.1",
     "crypto-js": "^4.2.0",
+    "events": "^3.3.0",
     "lucide-react": "^0.438.0",
     "pinata": "^0.4.0",
     "react": "^18.3.1",

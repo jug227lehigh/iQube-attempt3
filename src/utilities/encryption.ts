@@ -1,41 +1,80 @@
-import crypto from "crypto";
+/** AES-256-GCM via Web Crypto API (browser-native, authenticated encryption) */
+const IV_LENGTH = 12;
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 class EncryptionModule {
- static Encrypt = async (data: any) => {
-  try {
-   const algorithm = "aes-256-cbc";
-   const key = crypto.randomBytes(32);
-   const iv = crypto.randomBytes(16);
+  static Encrypt = async (data: unknown) => {
+    const key = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+    const encoded = new TextEncoder().encode(JSON.stringify(data));
 
-   const cipher = crypto.createCipheriv(algorithm, Buffer.from(key), iv);
-   let encrypted = cipher.update(JSON.stringify(data));
-   encrypted = Buffer.concat([encrypted, cipher.final()]);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv, tagLength: 128 },
+      key,
+      encoded
+    );
 
-   return {
-    iv: iv.toString("hex"),
-    encryptedData: encrypted.toString("hex"),
-    key: key.toString("hex"),
-   };
-  } catch (error) {
-   throw error;
-  }
- };
+    const rawKey = await crypto.subtle.exportKey("raw", key);
+    const keyHex = bytesToHex(new Uint8Array(rawKey));
+    const ciphertextBytes = new Uint8Array(ciphertext);
+    const authTag = ciphertextBytes.slice(-16);
+    const encryptedBody = ciphertextBytes.slice(0, -16);
 
- static Decrypt = async (encrypted: any) => {
-  try {
-   const algorithm = "aes-256-cbc";
-   const key = Buffer.from(encrypted.key, "hex");
-   const iv = Buffer.from(encrypted.iv, "hex");
+    return {
+      iv: bytesToHex(iv),
+      authTag: bytesToHex(authTag),
+      encryptedData: bytesToHex(encryptedBody),
+      key: keyHex,
+    };
+  };
 
-   const decipher = crypto.createDecipheriv(algorithm, key, iv);
-   let decrypted = decipher.update(Buffer.from(encrypted.encryptedData, "hex"));
-   decrypted = Buffer.concat([decrypted, decipher.final()]);
+  static Decrypt = async (encrypted: {
+    iv: string;
+    authTag: string;
+    encryptedData: string;
+    key: string;
+  }) => {
+    const keyBytes = hexToBytes(encrypted.key);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      { name: "AES-GCM" },
+      false,
+      ["decrypt"]
+    );
 
-   return JSON.parse(decrypted.toString());
-  } catch (error) {
-   throw error;
-  }
- };
+    const iv = hexToBytes(encrypted.iv);
+    const encryptedBody = hexToBytes(encrypted.encryptedData);
+    const authTag = hexToBytes(encrypted.authTag);
+    const ciphertext = new Uint8Array(encryptedBody.length + authTag.length);
+    ciphertext.set(encryptedBody);
+    ciphertext.set(authTag, encryptedBody.length);
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv, tagLength: 128 },
+      key,
+      ciphertext
+    );
+
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  };
 }
 
 export default EncryptionModule;

@@ -1,7 +1,7 @@
 enum constants {
  baseUrl = "https://iqubes-server.onrender.com",
  contractAddress = "",
- AMOY = "0x632E1d32e34F0A690635BBcbec0D066daa448ede",
+ AMOY = "0x52963dCe351eE3e8Af3f179D01271cA4e29C8448",
  AVALANCHE = "0x22E3EdeecfAB374a9C6F55C43B4bea31BA31C42A",
 
  OK_LINK_KEY = "b92a3c8f-77e2-42b1-836a-eb2d24537fb4",

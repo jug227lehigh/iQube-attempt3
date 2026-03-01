@@ -12,8 +12,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 /// @dev This contract inherits from ERC721, Ownable, Pausable, and ReentrancyGuard, and soon LayerZero
 contract iQubeNFT is ERC721, Ownable, Pausable, ReentrancyGuard {
     uint256 private _tokenIdCounter;                    // uint256 variable as a counter
-    mapping(uint256 => string) private _tokenURIs;      // Mapping from token ID to metaQube location (URI)
-    mapping(uint256 => string) private _encryptionKeys; // Mapping from token ID to encryption key
+    mapping(uint256 => string) private _tokenURIs;       // Mapping from token ID to metaQube location (URI)
+    mapping(uint256 => address) private _minterOf;      // Mapping from token ID to original minter (for key lookup off-chain)
 
     constructor(address initialOwner) ERC721("iQubeNFT", "QNFT") Ownable(initialOwner) {
         transferOwnership(initialOwner);
@@ -54,15 +54,14 @@ contract iQubeNFT is ERC721, Ownable, Pausable, ReentrancyGuard {
 
     function mintQube(
         address to,
-        string memory uri,
-        string memory encryptionKey
+        string memory uri
     ) public whenNotPaused nonReentrant {
         uint256 tokenId = _tokenIdCounter;              // use counter
         _tokenIdCounter++;                              // increment counter
 
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
-        _encryptionKeys[tokenId] = encryptionKey;       // store the encryption key
+        _minterOf[tokenId] = to;                       // store minter for off-chain key lookup
     }
 
     function getMetaQubeLocation(
@@ -71,11 +70,11 @@ contract iQubeNFT is ERC721, Ownable, Pausable, ReentrancyGuard {
         return tokenURI(tokenId);
     }
 
-    function getEncryptionKey(
+    function minterOf(
         uint256 tokenId
-    ) public view returns (string memory) {
-        require(ownerOf(tokenId) == msg.sender, "Caller is not the owner");
-        return _encryptionKeys[tokenId];
+    ) public view returns (address) {
+        require(_ownerOf(tokenId) != address(0), "Query for nonexistent token");
+        return _minterOf[tokenId];
     }
 
   
