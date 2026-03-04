@@ -19,41 +19,7 @@ import {
   calculateRiskScore, getRiskLevel, getDefaultSensitivity, getDefaultFields,
 } from "../../types/iqube";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Navbar
-// ─────────────────────────────────────────────────────────────────────────────
-
-function Navbar() {
-  const { address, isConnecting, connect, disconnect } = useWallet();
-  return (
-    <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-10 py-5 bg-white border-b border-gray-200">
-      <span className="text-xl font-bold text-gray-900 tracking-tight">iQube</span>
-      <div>
-        {address ? (
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500 font-mono">
-              {address.slice(0, 6)}…{address.slice(-4)}
-            </span>
-            <button
-              onClick={disconnect}
-              className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-300 hover:bg-gray-100 transition-colors"
-            >
-              Disconnect
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={connect}
-            disabled={isConnecting}
-            className="px-5 py-2 rounded-lg text-sm font-semibold bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
-          >
-            {isConnecting ? "Connecting…" : "Connect Wallet"}
-          </button>
-        )}
-      </div>
-    </nav>
-  );
-}
+import Navbar from "../../components/Navbar";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Steps
@@ -753,10 +719,37 @@ export default function CreateIQubeWizard() {
       const hash = await mintQube(address as `0x${string}`, metaQubeLocation);
       if (!hash) return;
 
-      // Store wrapped key in Supabase (only for encrypted iQubes)
-      if (state.fields.length > 0 && wrappedKey && supabase) {
-        try {
-          const tokenId = await getTokenIdFromMintReceipt(hash);
+      // Store metadata + wrapped key in Supabase
+      try {
+        const tokenId = await getTokenIdFromMintReceipt(hash);
+
+        // Always store iQube metadata so My iQubes / Registry can find it
+        if (supabase) {
+          const { error: metaErr } = await supabase.from("iqubes").insert({
+            token_id: Number(tokenId),
+            owner_address: address,
+            minter_address: address,
+            tx_hash: hash,
+            ipfs_url: metaQubeLocation,
+            ipfs_hash: upload.IpfsHash,
+            title: state.title || `iQube #${Date.now()}`,
+            description: state.description,
+            iqube_type: state.iQubeType,
+            category: state.category,
+            visibility: state.visibility,
+            access_policy: state.accessPolicy,
+            business_model: state.businessModel,
+            price: state.price || null,
+            risk_score: riskScore,
+            is_encrypted: state.fields.length > 0,
+          });
+          if (metaErr) {
+            console.error("Failed to store iQube metadata:", metaErr.message);
+          }
+        }
+
+        // Store wrapped key (only for encrypted iQubes)
+        if (state.fields.length > 0 && wrappedKey && supabase) {
           try {
             const { error } = await supabase.from("iqube_wrapped_keys").insert({
               token_id: Number(tokenId),
@@ -775,17 +768,25 @@ export default function CreateIQubeWizard() {
             setMintError(`Mint succeeded but key storage failed: ${msg}. Your data may not be recoverable.`);
             setKeyStored(false);
           }
-        } catch (receiptErr: unknown) {
-          setMintError(
-            `Mint succeeded but could not get token ID: ${receiptErr instanceof Error ? receiptErr.message : String(receiptErr)}. Key not stored.`
-          );
-          setKeyStored(false);
+        } else if (state.fields.length === 0) {
+          setKeyStored(null);
         }
-      } else if (state.fields.length === 0) {
-        setKeyStored(null); // No private fields, nothing to store
+      } catch (receiptErr: unknown) {
+        setMintError(
+          `Mint succeeded but could not get token ID: ${receiptErr instanceof Error ? receiptErr.message : String(receiptErr)}. Key not stored.`
+        );
+        setKeyStored(false);
       }
     } catch (err: unknown) {
-      setMintError(err instanceof Error ? err.message : String(err));
+      if (err instanceof Error) {
+        setMintError(err.message);
+      } else if (typeof err === "object" && err !== null) {
+        // Some libraries throw plain objects (e.g. { message: "...", code: ... })
+        const obj = err as Record<string, unknown>;
+        setMintError(obj.message ? String(obj.message) : JSON.stringify(err));
+      } else {
+        setMintError(String(err));
+      }
     } finally {
       setIsSubmitting(false);
     }

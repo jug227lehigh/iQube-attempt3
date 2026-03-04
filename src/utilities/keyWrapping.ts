@@ -28,3 +28,16 @@ export function wrapDek(dekHex: string, encryptionPublicKey: string): string {
   });
   return JSON.stringify(encrypted);
 }
+
+/** Unwrap DEK using MetaMask eth_decrypt. Returns the original DEK hex string. */
+export async function unwrapDek(wrappedKeyJson: string, address: string): Promise<string> {
+  const ethereum = (window as unknown as { ethereum?: { request: (args: unknown) => Promise<unknown> } })
+    .ethereum;
+  if (!ethereum) throw new Error("Wallet not available");
+  const decrypted = await ethereum.request({
+    method: "eth_decrypt",
+    params: [wrappedKeyJson, address],
+  });
+  if (typeof decrypted !== "string") throw new Error("Decryption failed");
+  return decrypted;
+}
