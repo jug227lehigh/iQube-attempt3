@@ -45,7 +45,11 @@ export default function DecryptQube() {
       }
 
       // 2. Fetch metadata from IPFS
-      const metaQubeUrl = await getMetaQubeLocation(Number(tokenId));
+      let metaQubeUrl = await getMetaQubeLocation(Number(tokenId));
+      // Some on-chain URLs are missing the https:// prefix
+      if (metaQubeUrl && !metaQubeUrl.startsWith("http")) {
+        metaQubeUrl = `https://${metaQubeUrl}`;
+      }
       const metaRes = await fetch(metaQubeUrl);
       if (!metaRes.ok) throw new Error("Failed to fetch metadata from IPFS");
       const meta = await metaRes.json();
