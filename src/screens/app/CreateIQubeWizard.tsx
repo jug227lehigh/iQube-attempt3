@@ -124,6 +124,8 @@ interface WizardState {
   canFork: boolean;
 }
 
+type StorageProvider = "pinata" | "autodrive";
+
 const INITIAL_STATE: WizardState = {
   iQubeType: null,
   category: null,
@@ -541,8 +543,14 @@ const RISK_META: Record<RiskLevel, { label: string; textColor: string; bg: strin
   critical: { label: "Critical Risk", textColor: "text-red-700",     bg: "bg-red-50",     border: "border-red-300",     icon: <XCircle size={18} /> },
 };
 
-function Step5Review({ state, onSubmit, isSubmitting, mintError, txHash, keyStored }: {
-  state: WizardState; onSubmit: () => void; isSubmitting: boolean; mintError: string; txHash: string; keyStored: boolean | null;
+function Step5Review({ state, onMintPinata, onMintAutoDrive, isSubmitting, mintError, txHash, keyStored }: {
+  state: WizardState;
+  onMintPinata: () => void;
+  onMintAutoDrive: () => void;
+  isSubmitting: boolean;
+  mintError: string;
+  txHash: string;
+  keyStored: boolean | null;
 }) {
   const sensitivity = state.iQubeType ? getDefaultSensitivity(state.iQubeType, state.category ?? "Other" as IQubeCategory) : 5;
   const riskScore = calculateRiskScore(sensitivity, 5, 5);
@@ -617,10 +625,22 @@ function Step5Review({ state, onSubmit, isSubmitting, mintError, txHash, keyStor
         </div>
       )}
 
-      <button onClick={onSubmit} disabled={isSubmitting || !!txHash}
-        className="w-full py-5 rounded-2xl text-base font-bold bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-        {isSubmitting ? "Minting iQube…" : txHash ? "Minted ✓" : "Mint iQube"}
-      </button>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={onMintPinata}
+          disabled={isSubmitting || !!txHash}
+          className="flex-1 py-5 rounded-2xl text-base font-bold bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? "Minting to Pinata…" : txHash ? "Minted ✓" : "Mint to Pinata"}
+        </button>
+        <button
+          onClick={onMintAutoDrive}
+          disabled={isSubmitting || !!txHash}
+          className="flex-1 py-5 rounded-2xl text-base font-bold bg-white text-black border-2 border-black hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? "Minting to Auto-Drive…" : txHash ? "Minted ✓" : "Mint to Auto-Drive"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -659,7 +679,41 @@ export default function CreateIQubeWizard() {
   const next = () => setStep(s => Math.min(4, s + 1) as Step);
   const back = () => setStep(s => Math.max(0, s - 1) as Step);
 
-  const handleSubmit = async () => {
+  const uploadMetadata = async (
+    provider: StorageProvider,
+    metadataJson: unknown
+  ): Promise<{ metaQubeLocation: string; storageHash: string }> => {
+    if (provider === "pinata") {
+      const upload = await pinata.upload.json(metadataJson);
+      const metaQubeLocation = `${import.meta.env.VITE_GATEWAY_URL}/ipfs/${upload.IpfsHash}`;
+      return { metaQubeLocation, storageHash: upload.IpfsHash };
+    }
+
+    const response = await fetch("http://localhost:4000/api/autodrive-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metadata: metadataJson }),
+    });
+
+    if (!response.ok) {
+      let message = `Auto-Drive upload failed with status ${response.status}`;
+      try {
+        const body = await response.json();
+        if (body?.error) message = String(body.error);
+      } catch {
+        // ignore JSON parse errors
+      }
+      throw new Error(message);
+    }
+
+    const body = await response.json() as { url: string; cid: string };
+    if (!body.url || !body.cid) {
+      throw new Error("Auto-Drive response missing url or cid");
+    }
+    return { metaQubeLocation: body.url, storageHash: body.cid };
+  };
+
+  const handleSubmit = async (provider: StorageProvider) => {
     if (!address) { setMintError("Please connect your wallet first."); return; }
     setIsSubmitting(true);
     setMintError("");
@@ -683,8 +737,17 @@ export default function CreateIQubeWizard() {
         dekHex = encrypted.key;
 
         // Wrap DEK with minter's MetaMask encryption public key
-        const encryptionPubKey = await getEncryptionPublicKey(address);
-        wrappedKey = wrapDek(dekHex, encryptionPubKey);
+        // Note: MetaMask often labels this permission flow as "decrypt".
+        try {
+          const encryptionPubKey = await getEncryptionPublicKey(address);
+          wrappedKey = wrapDek(dekHex, encryptionPubKey);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          setMintError(
+            `To mint with private fields, MetaMask must enable encryption for this site (the popup may say "decrypt"). Approve it and try again.\n\nDetails: ${msg}`
+          );
+          return;
+        }
       } else {
         encryptedBlakQube = "";
       }
@@ -708,8 +771,10 @@ export default function CreateIQubeWizard() {
         ],
       };
 
-      const upload = await pinata.upload.json(metadataJson);
-      const metaQubeLocation = `${import.meta.env.VITE_GATEWAY_URL}/ipfs/${upload.IpfsHash}`;
+      const { metaQubeLocation, storageHash } = await uploadMetadata(
+        provider,
+        metadataJson
+      );
 
       if (state.fields.length > 0 && wrappedKey && !isSupabaseConfigured()) {
         setMintError("Supabase is not configured. Wrapped keys must be stored for encrypted iQubes.");
@@ -731,7 +796,7 @@ export default function CreateIQubeWizard() {
             minter_address: address,
             tx_hash: hash,
             ipfs_url: metaQubeLocation,
-            ipfs_hash: upload.IpfsHash,
+            ipfs_hash: storageHash,
             title: state.title || `iQube #${Date.now()}`,
             description: state.description,
             iqube_type: state.iQubeType,
@@ -755,7 +820,7 @@ export default function CreateIQubeWizard() {
               token_id: Number(tokenId),
               minter_address: address,
               wrapped_key: wrappedKey,
-              ipfs_hash: upload.IpfsHash,
+              ipfs_hash: storageHash,
             });
             if (error) {
               setMintError(`Mint succeeded but key storage failed: ${error.message}. Your data may not be recoverable.`);
@@ -808,7 +873,17 @@ export default function CreateIQubeWizard() {
             {step === 1 && <Step2BasicDetails state={state} onChange={update} />}
             {step === 2 && <Step3PrivateData state={state} onChange={update} />}
             {step === 3 && <Step4AccessControl state={state} onChange={update} />}
-            {step === 4 && <Step5Review state={state} onSubmit={handleSubmit} isSubmitting={isSubmitting} mintError={mintError} txHash={txHash} keyStored={keyStored} />}
+            {step === 4 && (
+              <Step5Review
+                state={state}
+                onMintPinata={() => handleSubmit("pinata")}
+                onMintAutoDrive={() => handleSubmit("autodrive")}
+                isSubmitting={isSubmitting}
+                mintError={mintError}
+                txHash={txHash}
+                keyStored={keyStored}
+              />
+            )}
           </div>
           {step < 4 && (
             <NavButtons step={step} onBack={back} onNext={next}
