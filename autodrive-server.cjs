@@ -32,6 +32,32 @@ app.get("/", (req, res) => {
   res.send("Auto-Drive helper server is running");
 });
 
+app.get("/api/autodrive-metadata", async (req, res) => {
+  try {
+    const url = req.query.url;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ error: "Missing url query parameter" });
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      return res
+        .status(response.status)
+        .json({ error: `Upstream metadata fetch failed with status ${response.status}` });
+    }
+
+    const json = await response.json();
+    res.json(json);
+  } catch (err) {
+    console.error("Auto-Drive metadata proxy error:", err);
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String(err.message)
+        : String(err);
+    res.status(500).json({ error: message });
+  }
+});
+
 app.post("/api/autodrive-upload", async (req, res) => {
   try {
     if (!autoDriveApi) {
@@ -61,7 +87,7 @@ app.post("/api/autodrive-upload", async (req, res) => {
 
     const gatewayBase =
       process.env.AUTO_DRIVE_GATEWAY_URL ||
-      "https://gateway.autonomys.xyz/ipfs";
+      "https://gateway.autonomys.xyz/file";
 
     const url = `${gatewayBase}/${cid}`;
 

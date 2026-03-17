@@ -12,6 +12,38 @@ import {
 } from "../../utilities/keyWrapping";
 import Navbar from "../../components/Navbar";
 
+function buildMetadataFetchUrl(rawUrl: string | null): string {
+  if (!rawUrl) {
+    throw new Error("Empty metaQube URL on chain");
+  }
+
+  let url = rawUrl;
+  if (!url.startsWith("http")) {
+    url = `https://${url}`;
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    if (parsed.hostname === "gateway.autonomys.xyz") {
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      const cid = segments[segments.length - 1] ?? "";
+      const gatewayUrl = `https://gateway.autonomys.xyz/file/${cid}`;
+      return `http://localhost:4000/api/autodrive-metadata?url=${encodeURIComponent(
+        gatewayUrl
+      )}`;
+    }
+
+    return parsed.toString();
+  } catch {
+    const cid = rawUrl.replace(/^ipfs:\/\//, "").split("/").pop() ?? "";
+    const gatewayUrl = `https://gateway.autonomys.xyz/file/${cid}`;
+    return `http://localhost:4000/api/autodrive-metadata?url=${encodeURIComponent(
+      gatewayUrl
+    )}`;
+  }
+}
+
 export default function DecryptQube() {
   const { address } = useWallet();
   const [searchParams] = useSearchParams();
@@ -50,14 +82,15 @@ export default function DecryptQube() {
         return;
       }
 
-      // 2. Fetch metadata from IPFS
-      let metaQubeUrl = await getMetaQubeLocation(Number(tokenId));
-      // Some on-chain URLs are missing the https:// prefix
-      if (metaQubeUrl && !metaQubeUrl.startsWith("http")) {
-        metaQubeUrl = `https://${metaQubeUrl}`;
+      // 2. Fetch metadata from IPFS (proxied via Auto-Drive server for CORS safety)
+      const rawMetaQubeUrl = await getMetaQubeLocation(Number(tokenId));
+      const metaFetchUrl = buildMetadataFetchUrl(rawMetaQubeUrl);
+      const metaRes = await fetch(metaFetchUrl);
+      if (!metaRes.ok) {
+        throw new Error(
+          `Failed to fetch metadata from IPFS (status ${metaRes.status}). Check that the Auto-Drive server is running and the CID is available.`
+        );
       }
-      const metaRes = await fetch(metaQubeUrl);
-      if (!metaRes.ok) throw new Error("Failed to fetch metadata from IPFS");
       const meta = await metaRes.json();
       setMetadata(meta);
 
