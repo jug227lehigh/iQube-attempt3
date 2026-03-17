@@ -9,7 +9,7 @@ import { useWallet } from "../../context/WalletContext";
 import { useMintQube } from "../../hooks/contractHooks";
 import { pinata } from "../../utilities/pinata-config";
 import EncryptionModule from "../../utilities/encryption";
-import { getEncryptionPublicKey, wrapDek } from "../../utilities/keyWrapping";
+import { authorizeDekStorage } from "../../utilities/keyWrapping";
 import { supabase, isSupabaseConfigured } from "../../utilities/supabase";
 import { getTokenIdFromMintReceipt } from "../../utilities/contractUtils";
 import {
@@ -609,7 +609,7 @@ function Step5Review({ state, onMintPinata, onMintAutoDrive, isSubmitting, mintE
           </div>
           {keyStored === true && (
             <div className="px-5 py-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
-              Wrapped key stored in Supabase. Your data is recoverable.
+              Protected decryption key stored in Supabase. Your data is recoverable without MetaMask decrypt RPCs.
             </div>
           )}
           {keyStored === false && state.fields.length > 0 && (
@@ -724,7 +724,6 @@ export default function CreateIQubeWizard() {
 
       let encryptedBlakQube: string;
       let dekHex: string | null = null;
-      let wrappedKey: string | null = null;
 
       if (state.fields.length > 0) {
         // Client-side encryption with AES-256-GCM
@@ -735,19 +734,6 @@ export default function CreateIQubeWizard() {
           encryptedData: encrypted.encryptedData,
         });
         dekHex = encrypted.key;
-
-        // Wrap DEK with minter's MetaMask encryption public key
-        // Note: MetaMask often labels this permission flow as "decrypt".
-        try {
-          const encryptionPubKey = await getEncryptionPublicKey(address);
-          wrappedKey = wrapDek(dekHex, encryptionPubKey);
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          setMintError(
-            `To mint with private fields, MetaMask must enable encryption for this site (the popup may say "decrypt"). Approve it and try again.\n\nDetails: ${msg}`
-          );
-          return;
-        }
       } else {
         encryptedBlakQube = "";
       }
@@ -776,15 +762,15 @@ export default function CreateIQubeWizard() {
         metadataJson
       );
 
-      if (state.fields.length > 0 && wrappedKey && !isSupabaseConfigured()) {
-        setMintError("Supabase is not configured. Wrapped keys must be stored for encrypted iQubes.");
+      if (state.fields.length > 0 && dekHex && !isSupabaseConfigured()) {
+        setMintError("Supabase is not configured. Encrypted iQubes require the key service to store the AES key.");
         return;
       }
 
       const hash = await mintQube(address as `0x${string}`, metaQubeLocation);
       if (!hash) return;
 
-      // Store metadata + wrapped key in Supabase
+      // Store metadata + protected key in Supabase
       try {
         const tokenId = await getTokenIdFromMintReceipt(hash);
 
@@ -813,24 +799,19 @@ export default function CreateIQubeWizard() {
           }
         }
 
-        // Store wrapped key (only for encrypted iQubes)
-        if (state.fields.length > 0 && wrappedKey && supabase) {
+        // Store encrypted DEK via Edge Function (only for encrypted iQubes)
+        if (state.fields.length > 0 && dekHex && supabase) {
           try {
-            const { error } = await supabase.from("iqube_wrapped_keys").insert({
-              token_id: Number(tokenId),
-              minter_address: address,
-              wrapped_key: wrappedKey,
-              ipfs_hash: storageHash,
+            await authorizeDekStorage({
+              tokenId: Number(tokenId),
+              address,
+              dekHex,
+              ipfsHash: storageHash,
             });
-            if (error) {
-              setMintError(`Mint succeeded but key storage failed: ${error.message}. Your data may not be recoverable.`);
-              setKeyStored(false);
-            } else {
-              setKeyStored(true);
-            }
+            setKeyStored(true);
           } catch (supaErr: unknown) {
             const msg = supaErr instanceof Error ? supaErr.message : String(supaErr);
-            setMintError(`Mint succeeded but key storage failed: ${msg}. Your data may not be recoverable.`);
+            setMintError(`Mint succeeded but key storage failed: ${msg}. Your encrypted data may not be recoverable until the key is stored.`);
             setKeyStored(false);
           }
         } else if (state.fields.length === 0) {

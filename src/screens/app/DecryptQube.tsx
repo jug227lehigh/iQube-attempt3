@@ -5,7 +5,11 @@ import { useWallet } from "../../context/WalletContext";
 import { ownerOf, getMetaQubeLocation } from "../../utilities/contractUtils";
 import { supabase, isSupabaseConfigured } from "../../utilities/supabase";
 import EncryptionModule from "../../utilities/encryption";
-import { unwrapDek } from "../../utilities/keyWrapping";
+import {
+  authorizeDekStorage,
+  requestDekForDecryption,
+  unwrapLegacyDek,
+} from "../../utilities/keyWrapping";
 import Navbar from "../../components/Navbar";
 
 export default function DecryptQube() {
@@ -14,6 +18,7 @@ export default function DecryptQube() {
   const [tokenId, setTokenId] = useState(searchParams.get("tokenId") ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [decryptedData, setDecryptedData] = useState<Record<string, string> | null>(null);
   const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
 
@@ -33,6 +38,7 @@ export default function DecryptQube() {
 
     setIsLoading(true);
     setError("");
+    setNotice("");
     setDecryptedData(null);
     setMetadata(null);
 
@@ -68,20 +74,53 @@ export default function DecryptQube() {
         return;
       }
 
-      // 4. Fetch wrapped key from Supabase
+      // 4. Fetch stored key metadata from Supabase
       const { data: keyRow, error: keyErr } = await supabase!
         .from("iqube_wrapped_keys")
-        .select("wrapped_key")
+        .select("wrapped_key, encrypted_key, key_encryption_iv, ipfs_hash")
         .eq("token_id", Number(tokenId))
         .single();
 
       if (keyErr || !keyRow) {
-        setError("Could not retrieve wrapped key from Supabase. Key may not have been stored.");
+        setError("Could not retrieve the encrypted key from Supabase. The key may not have been stored.");
         return;
       }
 
-      // 5. Unwrap DEK using MetaMask
-      const dekHex = await unwrapDek(keyRow.wrapped_key, address);
+      let dekHex: string;
+
+      if (keyRow.encrypted_key && keyRow.key_encryption_iv) {
+        dekHex = await requestDekForDecryption({
+          tokenId: Number(tokenId),
+          address,
+        });
+      } else if (keyRow.wrapped_key) {
+        // Legacy fallback for iQubes minted before the server-managed key flow.
+        dekHex = await unwrapLegacyDek(keyRow.wrapped_key, address);
+
+        try {
+          await authorizeDekStorage({
+            tokenId: Number(tokenId),
+            address,
+            dekHex,
+            ipfsHash: keyRow.ipfs_hash,
+          });
+          setNotice(
+            "Legacy key migrated. Future decrypts will use a wallet signature instead of MetaMask's deprecated decrypt RPC."
+          );
+        } catch (migrationError: unknown) {
+          const msg =
+            migrationError instanceof Error
+              ? migrationError.message
+              : String(migrationError);
+          console.warn("Legacy key migration failed:", msg);
+          setNotice(
+            "Decryption succeeded, but key migration failed. Future decrypts may still trigger the legacy MetaMask decrypt prompt."
+          );
+        }
+      } else {
+        setError("No decryptable key was stored for this iQube.");
+        return;
+      }
 
       // 6. Parse encrypted blob and decrypt
       const encryptedBlob = JSON.parse(blakQubeAttr.value as string);
@@ -148,6 +187,11 @@ export default function DecryptQube() {
               <AlertTriangle size={18} /> {error}
             </div>
           )}
+          {notice && (
+            <div className="mb-8 flex items-center gap-3 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+              <CheckCircle size={18} /> {notice}
+            </div>
+          )}
 
           {/* Metadata summary */}
           {metadata && (
@@ -185,7 +229,7 @@ export default function DecryptQube() {
                 ))}
               </div>
               <div className="px-6 py-3 flex items-center gap-2 text-xs text-emerald-600 border-t border-emerald-200">
-                <CheckCircle size={14} /> Decrypted successfully using your MetaMask key.
+                <CheckCircle size={14} /> Decrypted successfully after wallet authorization.
               </div>
             </div>
           )}
