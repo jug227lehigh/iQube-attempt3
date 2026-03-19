@@ -13,7 +13,7 @@ import { authorizeDekStorage } from "../../utilities/keyWrapping";
 import { supabase, isSupabaseConfigured } from "../../utilities/supabase";
 import { getTokenIdFromMintReceipt } from "../../utilities/contractUtils";
 import {
-  type IQubeType, type IQubeCategory, type Visibility,
+  type IQubeType, type IQubeCategory,
   type BusinessModel, type AccessPolicy, type BlakQubeField,
   type RiskLevel,
   calculateRiskScore, getRiskLevel, getDefaultSensitivity, getDefaultFields,
@@ -25,8 +25,8 @@ import Navbar from "../../components/Navbar";
 // Steps
 // ─────────────────────────────────────────────────────────────────────────────
 
-const STEPS = ["Asset Type", "Basic Details", "Private Data", "Access Control", "Review"] as const;
-type Step = 0 | 1 | 2 | 3 | 4;
+const STEPS = ["Asset Type", "Details & Access", "Private Data", "Review"] as const;
+type Step = 0 | 1 | 2 | 3;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Type options
@@ -111,7 +111,6 @@ interface WizardState {
   category: IQubeCategory | null;
   title: string;
   description: string;
-  visibility: Visibility;
   fields: BlakQubeField[];
   accessPolicy: AccessPolicy;
   allowedAddresses: string;
@@ -131,7 +130,6 @@ const INITIAL_STATE: WizardState = {
   category: null,
   title: "",
   description: "",
-  visibility: "private",
   fields: [],
   accessPolicy: "only-me",
   allowedAddresses: "",
@@ -143,6 +141,13 @@ const INITIAL_STATE: WizardState = {
   canDecrypt: true,
   canFork: false,
 };
+
+// Derive visibility from access policy for backward compatibility
+function accessPolicyToVisibility(policy: AccessPolicy): string {
+  if (policy === "only-me") return "private";
+  if (policy === "specific") return "semi-private";
+  return "public";
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Progress bar
@@ -279,23 +284,34 @@ function Step1AssetType({ state, onChange }: { state: WizardState; onChange: (s:
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 2 — Basic Details
+// Step 2 — Details & Access (merged Basic Details + Access Control)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const VISIBILITY_OPTIONS: Array<{ value: Visibility; label: string; desc: string }> = [
-  { value: "private",      label: "Just me",             desc: "Only you can see this exists" },
-  { value: "semi-private", label: "People I share with", desc: "Visible to specific addresses" },
-  { value: "public",       label: "Public marketplace",  desc: "Anyone can discover this" },
+const ACCESS_OPTIONS: Array<{ value: AccessPolicy; label: string; desc: string }> = [
+  { value: "only-me",      label: "Just me",           desc: "Only you can see and access this" },
+  { value: "specific",     label: "Specific people",   desc: "Shared with chosen wallet addresses" },
+  { value: "requirements", label: "Public",             desc: "Anyone can discover this on the marketplace" },
 ];
 
-function Step2BasicDetails({ state, onChange }: { state: WizardState; onChange: (s: Partial<WizardState>) => void }) {
+const BUSINESS_MODELS: Array<{ value: BusinessModel; label: string; desc: string; hasPrice: boolean; placeholder?: string }> = [
+  { value: "Free",      label: "Free",      desc: "No cost",          hasPrice: false },
+  { value: "Buy",       label: "Buy",       desc: "One-time payment", hasPrice: true,  placeholder: "Price (e.g. 9.99)" },
+  { value: "Subscribe", label: "Subscribe", desc: "Monthly fee",      hasPrice: true,  placeholder: "Price/month" },
+  { value: "Rent",      label: "Rent",      desc: "Pay per use",      hasPrice: true,  placeholder: "Price per use" },
+  { value: "License",   label: "License",   desc: "License fee",      hasPrice: true,  placeholder: "License fee" },
+  { value: "Donate",    label: "Donate",    desc: "Voluntary",        hasPrice: false },
+];
+
+function Step2DetailsAndAccess({ state, onChange }: { state: WizardState; onChange: (s: Partial<WizardState>) => void }) {
   const selectedType = TYPE_OPTIONS.find(o => o.type === state.iQubeType);
+  const selectedBM = BUSINESS_MODELS.find(o => o.value === state.businessModel)!;
   return (
     <div>
-      <h2 className="text-3xl font-bold text-gray-900 mb-2">Basic Details</h2>
-      <p className="text-gray-500 text-base mb-10">Describe your {selectedType?.label ?? "asset"}.</p>
+      <h2 className="text-3xl font-bold text-gray-900 mb-2">Details & Access</h2>
+      <p className="text-gray-500 text-base mb-10">Describe your {selectedType?.label ?? "asset"} and set who can access it.</p>
 
-      <div className="space-y-8">
+      <div className="space-y-10">
+        {/* Name */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Name</label>
           <input
@@ -311,37 +327,29 @@ function Step2BasicDetails({ state, onChange }: { state: WizardState; onChange: 
           />
         </div>
 
+        {/* Description */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
           <textarea
             value={state.description}
             onChange={e => onChange({ description: e.target.value })}
-            rows={4}
+            rows={3}
             placeholder="What is this asset? What does it contain or do?"
             className="w-full px-5 py-4 rounded-xl bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 text-base resize-none focus:outline-none focus:border-black transition-colors"
           />
         </div>
 
+        {/* Access policy */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">Who can see this exists?</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">Who can access this?</label>
           <div className="space-y-3">
-            {VISIBILITY_OPTIONS.map(opt => (
-              <label
-                key={opt.value}
+            {ACCESS_OPTIONS.map(opt => (
+              <label key={opt.value}
                 className={`flex items-center gap-5 p-5 rounded-xl border-2 cursor-pointer transition-colors ${
-                  state.visibility === opt.value
-                    ? "bg-gray-50 border-black"
-                    : "bg-white border-gray-200 hover:border-gray-400"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="visibility"
-                  value={opt.value}
-                  checked={state.visibility === opt.value}
-                  onChange={() => onChange({ visibility: opt.value })}
-                  className="w-4 h-4 accent-black"
-                />
+                  state.accessPolicy === opt.value ? "bg-gray-50 border-black" : "bg-white border-gray-200 hover:border-gray-400"
+                }`}>
+                <input type="radio" name="accessPolicy" checked={state.accessPolicy === opt.value}
+                  onChange={() => onChange({ accessPolicy: opt.value })} className="w-4 h-4 accent-black" />
                 <div>
                   <div className="text-sm font-semibold text-gray-900">{opt.label}</div>
                   <div className="text-sm text-gray-500 mt-0.5">{opt.desc}</div>
@@ -349,7 +357,41 @@ function Step2BasicDetails({ state, onChange }: { state: WizardState; onChange: 
               </label>
             ))}
           </div>
+          {state.accessPolicy === "specific" && (
+            <input type="text" value={state.allowedAddresses}
+              onChange={e => onChange({ allowedAddresses: e.target.value })}
+              placeholder="0xabc..., 0xdef... (comma-separated)"
+              className="mt-4 w-full px-5 py-4 rounded-xl bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:border-black transition-colors"
+            />
+          )}
         </div>
+
+        {/* Pricing — only shown for non-private iQubes */}
+        {state.accessPolicy !== "only-me" && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">Pricing model</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+              {BUSINESS_MODELS.map(opt => (
+                <button key={opt.value} onClick={() => onChange({ businessModel: opt.value })}
+                  className={`text-left px-5 py-4 rounded-xl text-sm border-2 transition-colors ${
+                    state.businessModel === opt.value
+                      ? "bg-gray-50 border-black text-gray-900"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"
+                  }`}>
+                  <div className="font-semibold">{opt.label}</div>
+                  <div className="text-gray-400 text-xs mt-0.5">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+            {selectedBM.hasPrice && (
+              <input type="number" min={0} value={state.price}
+                onChange={e => onChange({ price: e.target.value })}
+                placeholder={selectedBM.placeholder}
+                className="mt-4 w-full px-5 py-4 rounded-xl bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:border-black transition-colors"
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -451,86 +493,7 @@ function Step3PrivateData({ state, onChange }: { state: WizardState; onChange: (
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 4 — Access Control
-// ─────────────────────────────────────────────────────────────────────────────
-
-const BUSINESS_MODELS: Array<{ value: BusinessModel; label: string; desc: string; hasPrice: boolean; placeholder?: string }> = [
-  { value: "Free",      label: "Free",      desc: "No cost",          hasPrice: false },
-  { value: "Buy",       label: "Buy",       desc: "One-time payment", hasPrice: true,  placeholder: "Price (e.g. 9.99)" },
-  { value: "Subscribe", label: "Subscribe", desc: "Monthly fee",      hasPrice: true,  placeholder: "Price/month" },
-  { value: "Rent",      label: "Rent",      desc: "Pay per use",      hasPrice: true,  placeholder: "Price per use" },
-  { value: "License",   label: "License",   desc: "License fee",      hasPrice: true,  placeholder: "License fee" },
-  { value: "Donate",    label: "Donate",    desc: "Voluntary",        hasPrice: false },
-];
-
-const ACCESS_OPTIONS: Array<{ value: AccessPolicy; label: string; desc: string }> = [
-  { value: "only-me",      label: "Only me",              desc: "Completely private — just you" },
-  { value: "specific",     label: "Specific addresses",   desc: "Share with chosen wallets" },
-  { value: "requirements", label: "Open with conditions", desc: "Anyone who meets your requirements" },
-];
-
-function Step4AccessControl({ state, onChange }: { state: WizardState; onChange: (s: Partial<WizardState>) => void }) {
-  const selectedBM = BUSINESS_MODELS.find(o => o.value === state.businessModel)!;
-  return (
-    <div>
-      <h2 className="text-3xl font-bold text-gray-900 mb-2">Access Control</h2>
-      <p className="text-gray-500 text-base mb-10">Who can access this, and how is it priced?</p>
-
-      <div className="space-y-10">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">Who can access this?</label>
-          <div className="space-y-3">
-            {ACCESS_OPTIONS.map(opt => (
-              <label key={opt.value}
-                className={`flex items-center gap-5 p-5 rounded-xl border-2 cursor-pointer transition-colors ${
-                  state.accessPolicy === opt.value ? "bg-gray-50 border-black" : "bg-white border-gray-200 hover:border-gray-400"
-                }`}>
-                <input type="radio" name="accessPolicy" checked={state.accessPolicy === opt.value}
-                  onChange={() => onChange({ accessPolicy: opt.value })} className="w-4 h-4 accent-black" />
-                <div>
-                  <div className="text-sm font-semibold text-gray-900">{opt.label}</div>
-                  <div className="text-sm text-gray-500 mt-0.5">{opt.desc}</div>
-                </div>
-              </label>
-            ))}
-          </div>
-          {state.accessPolicy === "specific" && (
-            <input type="text" value={state.allowedAddresses}
-              onChange={e => onChange({ allowedAddresses: e.target.value })}
-              placeholder="0xabc..., 0xdef... (comma-separated)"
-              className="mt-4 w-full px-5 py-4 rounded-xl bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:border-black transition-colors"
-            />
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">Pricing model</label>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
-            {BUSINESS_MODELS.map(opt => (
-              <button key={opt.value} onClick={() => onChange({ businessModel: opt.value })}
-                className={`text-left px-5 py-4 rounded-xl text-sm border-2 transition-colors ${
-                  state.businessModel === opt.value
-                    ? "bg-gray-50 border-black text-gray-900"
-                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"
-                }`}>
-                <div className="font-semibold">{opt.label}</div>
-                <div className="text-gray-400 text-xs mt-0.5">{opt.desc}</div>
-              </button>
-            ))}
-          </div>
-          {selectedBM.hasPrice && (
-            <input type="number" min={0} value={state.price}
-              onChange={e => onChange({ price: e.target.value })}
-              placeholder={selectedBM.placeholder}
-              className="mt-4 w-full px-5 py-4 rounded-xl bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:border-black transition-colors"
-            />
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+// Step 4 (Access Control) has been merged into Step 2 above.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Step 5 — Review
@@ -561,10 +524,9 @@ function Step5Review({ state, onMintPinata, onMintAutoDrive, isSubmitting, mintE
   const rows = [
     { label: "Type",          value: `${state.iQubeType} · ${state.category}` },
     { label: "Name",          value: state.title || "—" },
-    { label: "Visibility",    value: state.visibility.replace("-", " ") },
+    { label: "Access",        value: state.accessPolicy === "only-me" ? "Just me" : state.accessPolicy === "specific" ? "Specific people" : "Public" },
     { label: "Private fields",value: `${state.fields.length} field${state.fields.length !== 1 ? "s" : ""}` },
-    { label: "Access",        value: state.accessPolicy === "only-me" ? "Only me" : state.accessPolicy === "specific" ? "Specific addresses" : "Requirement-based" },
-    { label: "Pricing",       value: `${state.businessModel}${state.price ? ` · $${state.price}` : ""}` },
+    ...(state.accessPolicy !== "only-me" ? [{ label: "Pricing", value: `${state.businessModel}${state.price ? ` · $${state.price}` : ""}` }] : []),
   ];
 
   return (
@@ -676,12 +638,12 @@ export default function CreateIQubeWizard() {
     return true;
   }, [step, state.iQubeType, state.category, state.title]);
 
-  const next = () => setStep(s => Math.min(4, s + 1) as Step);
+  const next = () => setStep(s => Math.min(3, s + 1) as Step);
   const back = () => setStep(s => Math.max(0, s - 1) as Step);
 
   const uploadMetadata = async (
     provider: StorageProvider,
-    metadataJson: unknown
+    metadataJson: Record<string, unknown>
   ): Promise<{ metaQubeLocation: string; storageHash: string }> => {
     if (provider === "pinata") {
       const upload = await pinata.upload.json(metadataJson);
@@ -757,7 +719,7 @@ export default function CreateIQubeWizard() {
         attributes: [
           { trait_type: "iQubeType",    value: state.iQubeType },
           { trait_type: "category",     value: state.category },
-          { trait_type: "visibility",   value: state.visibility },
+          { trait_type: "visibility",   value: accessPolicyToVisibility(state.accessPolicy) },
           { trait_type: "riskScore",    value: riskScore },
           { trait_type: "accessPolicy", value: state.accessPolicy },
           { trait_type: "businessModel",value: state.businessModel },
@@ -799,7 +761,7 @@ export default function CreateIQubeWizard() {
             description: state.description,
             iqube_type: state.iQubeType,
             category: state.category,
-            visibility: state.visibility,
+            visibility: accessPolicyToVisibility(state.accessPolicy),
             access_policy: state.accessPolicy,
             business_model: state.businessModel,
             price: state.price || null,
@@ -884,10 +846,9 @@ export default function CreateIQubeWizard() {
           <StepBar current={step} />
           <div className="min-h-96">
             {step === 0 && <Step1AssetType state={state} onChange={update} />}
-            {step === 1 && <Step2BasicDetails state={state} onChange={update} />}
+            {step === 1 && <Step2DetailsAndAccess state={state} onChange={update} />}
             {step === 2 && <Step3PrivateData state={state} onChange={update} />}
-            {step === 3 && <Step4AccessControl state={state} onChange={update} />}
-            {step === 4 && (
+            {step === 3 && (
               <Step5Review
                 state={state}
                 onMintPinata={() => handleSubmit("pinata")}
@@ -899,9 +860,9 @@ export default function CreateIQubeWizard() {
               />
             )}
           </div>
-          {step < 4 && (
+          {step < 3 && (
             <NavButtons step={step} onBack={back} onNext={next}
-              nextLabel={step === 3 ? "Review" : "Continue"} nextDisabled={!canAdvance} />
+              nextLabel={step === 2 ? "Review" : "Continue"} nextDisabled={!canAdvance} />
           )}
         </div>
       </div>

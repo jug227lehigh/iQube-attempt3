@@ -135,7 +135,7 @@ export default function MyIQubes() {
                             <span style={{ color: typeMeta.color }} className="font-semibold">
                               {q.iqube_type} · {q.category}
                             </span>
-                            <span>{q.visibility}</span>
+                            <span>{q.access_policy === "only-me" ? "Private" : q.access_policy === "specific" ? "Shared" : "Public"}</span>
                             <span>{q.business_model}</span>
                             <span>Risk: {q.risk_score}/10</span>
                             {q.is_encrypted && (

@@ -52,7 +52,7 @@ export default function Registry() {
     supabase
       .from("iqubes")
       .select("*")
-      .eq("visibility", "public")
+      .eq("access_policy", "requirements")
       .order("created_at", { ascending: false })
       .limit(100)
       .then(({ data, error: err }) => {
