@@ -157,16 +157,29 @@ serve(async (req) => {
       return jsonResponse({ error: "Invalid wallet signature" }, 403);
     }
 
-    // 3. Verify on-chain ownership
+    // 3. Verify on-chain ownership or shared access
     const isOwner = await verifyOwnership(tokenId, address);
-    if (!isOwner) {
-      return jsonResponse({ error: "Caller is not the token owner" }, 403);
-    }
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    if (!isOwner) {
+      // Not the owner — check if caller is in the access list
+      const { data: accessRow } = await supabase
+        .from("iqube_access_list")
+        .select("id")
+        .eq("token_id", tokenId)
+        .eq("address", address.toLowerCase())
+        .maybeSingle();
+
+      if (!accessRow) {
+        return jsonResponse({ error: "Caller is not the token owner or an authorized address" }, 403);
+      }
+    }
 
     // ——— STORE action ———
     if (action === "store") {
+      if (!isOwner) {
+        return jsonResponse({ error: "Only the token owner can store keys" }, 403);
+      }
       if (!dekHex) {
         return jsonResponse({ error: "dekHex is required for store action" }, 400);
       }

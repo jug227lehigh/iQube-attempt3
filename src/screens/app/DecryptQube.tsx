@@ -75,11 +75,21 @@ export default function DecryptQube() {
     setMetadata(null);
 
     try {
-      // 1. Verify ownership
+      // 1. Verify ownership or shared access
       const owner = await ownerOf(Number(tokenId));
       if (owner.toLowerCase() !== address.toLowerCase()) {
-        setError("You are not the owner of this iQube. Only the owner can decrypt it.");
-        return;
+        // Not the owner — check if the caller is in the access list
+        const { data: accessRow } = await supabase!
+          .from("iqube_access_list")
+          .select("id")
+          .eq("token_id", Number(tokenId))
+          .eq("address", address.toLowerCase())
+          .maybeSingle();
+
+        if (!accessRow) {
+          setError("You are not the owner or an authorized address for this iQube.");
+          return;
+        }
       }
 
       // 2. Fetch metadata from IPFS (proxied via Auto-Drive server for CORS safety)
