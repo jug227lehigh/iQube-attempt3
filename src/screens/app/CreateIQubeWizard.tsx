@@ -741,6 +741,15 @@ export default function CreateIQubeWizard() {
       const sensitivity = state.iQubeType ? getDefaultSensitivity(state.iQubeType, state.category ?? "Other" as IQubeCategory) : 5;
       const riskScore = calculateRiskScore(sensitivity, 5, 5);
 
+      // Parse allowed addresses for \"specific\" access policy
+      let parsedAllowedAddresses: string[] = [];
+      if (state.accessPolicy === "specific" && state.allowedAddresses.trim()) {
+        parsedAllowedAddresses = state.allowedAddresses
+          .split(",")
+          .map((addr) => addr.trim())
+          .filter((addr) => addr.length > 0);
+      }
+
       const metadataJson = {
         name: state.title || `iQube #${Date.now()}`,
         description: state.description,
@@ -754,6 +763,9 @@ export default function CreateIQubeWizard() {
           { trait_type: "businessModel",value: state.businessModel },
           { trait_type: "isEncrypted",  value: state.fields.length > 0 },
           { trait_type: "blakQube",     value: encryptedBlakQube },
+          ...(parsedAllowedAddresses.length > 0
+            ? [{ trait_type: "allowedAddresses", value: parsedAllowedAddresses }] as const
+            : []),
         ],
       };
 
@@ -793,9 +805,30 @@ export default function CreateIQubeWizard() {
             price: state.price || null,
             risk_score: riskScore,
             is_encrypted: state.fields.length > 0,
+            allowed_addresses:
+              parsedAllowedAddresses.length > 0 ? parsedAllowedAddresses : null,
           });
           if (metaErr) {
             console.error("Failed to store iQube metadata:", metaErr.message);
+          }
+        }
+
+        // Persist per-address access list for \"Specific addresses\" policy
+        if (supabase && parsedAllowedAddresses.length > 0) {
+          try {
+            const rows = parsedAllowedAddresses.map((addr) => ({
+              token_id: Number(tokenId),
+              address: addr.toLowerCase(),
+              granted_by: address.toLowerCase(),
+            }));
+            const { error: accessErr } = await supabase
+              .from("iqube_access_list")
+              .insert(rows);
+            if (accessErr) {
+              console.error("Failed to store iQube access list:", accessErr.message);
+            }
+          } catch (listErr: unknown) {
+            console.error("Unexpected error while storing access list:", listErr);
           }
         }
 
