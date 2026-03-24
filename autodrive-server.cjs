@@ -3,11 +3,15 @@ const express = require("express");
 const cors = require("cors");
 const { createAutoDriveApi } = require("@autonomys/auto-drive");
 const { NetworkId } = require("@autonomys/auto-utils");
+const { registerAgentRoutes } = require("./server/agent/routes/chat.cjs");
+const { createOllamaClient } = require("./server/agent/providers/ollama.cjs");
+const { authorizeAgentUse } = require("./server/agent/auth/authorizeAgentUse.cjs");
+const { createRateLimiter } = require("./server/agent/rateLimiter.cjs");
 
 const app = express();
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
   })
 );
 app.use(express.json());
@@ -28,8 +32,21 @@ const autoDriveApi =
     network: NETWORK,
   });
 
+const ollamaClient = createOllamaClient();
+const agentRateLimiter = createRateLimiter({
+  windowMs: Number(process.env.AGENT_RATE_LIMIT_WINDOW_MS || 60_000),
+  max: Number(process.env.AGENT_RATE_LIMIT_MAX || 20),
+});
+
+registerAgentRoutes(app, {
+  authorizeAgentUse,
+  ollamaClient,
+  rateLimiter: agentRateLimiter,
+  logger: console,
+});
+
 app.get("/", (req, res) => {
-  res.send("Auto-Drive helper server is running");
+  res.send("Auto-Drive + Agent helper server is running");
 });
 
 app.get("/api/autodrive-metadata", async (req, res) => {

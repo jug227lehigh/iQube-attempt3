@@ -9,6 +9,7 @@ import DecryptQube from './screens/app/DecryptQube.tsx'
 import TransferQube from './screens/app/TransferQube.tsx'
 import MyIQubes from './screens/app/MyIQubes.tsx'
 import Registry from './screens/app/Registry.tsx'
+import AgentChat from './screens/app/AgentChat.tsx'
 
 const router = createBrowserRouter([
   { path: '/', element: <CreateIQubeWizard /> },
@@ -16,6 +17,7 @@ const router = createBrowserRouter([
   { path: '/decrypt', element: <DecryptQube /> },
   { path: '/transfer', element: <TransferQube /> },
   { path: '/registry', element: <Registry /> },
+  { path: '/agent-chat', element: <AgentChat /> },
 ])
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
