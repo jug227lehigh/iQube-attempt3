@@ -4,16 +4,16 @@ const { validateChatRequest } = require("../validation.cjs");
 function mapAgentError(error) {
   if (error && typeof error === "object") {
     if (error.code === "TIMEOUT") {
-      return { status: 504, message: error.message || "Model request timed out." };
+      return { status: 504, message: "Model request timed out." };
     }
     if (error.code === "MODEL_UNAVAILABLE") {
-      return { status: 503, message: error.message || "Requested local model is unavailable." };
+      return { status: 503, message: "Requested local model is unavailable." };
     }
     if (typeof error.status === "number" && error.status >= 400) {
-      return { status: error.status, message: error.message || "Agent request failed." };
+      return { status: error.status, message: "Agent request failed." };
     }
   }
-  return { status: 500, message: error instanceof Error ? error.message : "Unexpected agent error." };
+  return { status: 500, message: "Unexpected agent error." };
 }
 
 function writeSse(res, event, payload) {
@@ -40,6 +40,7 @@ function createAgentChatHandler(deps) {
     }
 
     const input = validation.data;
+    const contextTokenCount = Array.isArray(input.contextTokenIds) ? input.contextTokenIds.length : 0;
     const rateKey = `${input.walletAddress}:${req.ip || "unknown"}`;
     const limitResult = rateLimiter.check(rateKey);
     if (!limitResult.allowed) {
@@ -72,16 +73,19 @@ function createAgentChatHandler(deps) {
           maxTokens: input.maxTokens,
         });
         const latencyMs = Date.now() - startedAt;
-        logger.info(`[Agent][${requestId}] chat success ${latencyMs}ms`);
+        logger.info(
+          `[Agent][${requestId}] chat success ${latencyMs}ms contextTokens=${contextTokenCount}`
+        );
         return res.json({
           requestId,
           model: result.model || modelName,
           content: result.content,
           latencyMs,
+          contextTokenIds: input.contextTokenIds,
         });
       } catch (error) {
         const mapped = mapAgentError(error);
-        logger.error(`[Agent][${requestId}] chat failed`, error);
+        logger.error(`[Agent][${requestId}] chat failed: ${mapped.message}`);
         return res.status(mapped.status).json({ error: mapped.message, requestId });
       }
     }
@@ -96,7 +100,12 @@ function createAgentChatHandler(deps) {
     req.on("close", () => abortController.abort("client_closed"));
 
     try {
-      writeSse(res, "start", { requestId, model: modelName });
+      writeSse(res, "start", {
+        requestId,
+        model: modelName,
+        contextTokenCount,
+        contextTokenIds: input.contextTokenIds,
+      });
       for await (const token of ollamaClient.streamChat({
         messages: input.messages,
         model: modelName,
@@ -108,11 +117,13 @@ function createAgentChatHandler(deps) {
       }
       const latencyMs = Date.now() - startedAt;
       writeSse(res, "done", { requestId, model: modelName, latencyMs });
-      logger.info(`[Agent][${requestId}] stream success ${latencyMs}ms`);
+      logger.info(
+        `[Agent][${requestId}] stream success ${latencyMs}ms contextTokens=${contextTokenCount}`
+      );
       res.end();
     } catch (error) {
       const mapped = mapAgentError(error);
-      logger.error(`[Agent][${requestId}] stream failed`, error);
+      logger.error(`[Agent][${requestId}] stream failed: ${mapped.message}`);
       writeSse(res, "error", { requestId, error: mapped.message, status: mapped.status });
       res.end();
     }

@@ -2,6 +2,7 @@ const CHAT_ROLES = new Set(["system", "user", "assistant"]);
 const MAX_MESSAGES = 30;
 const MAX_MESSAGE_CHARS = 8000;
 const MAX_PROMPT_CHARS = 60000;
+const MAX_CONTEXT_TOKENS = 25;
 
 function toNumberOrUndefined(value) {
   if (value === undefined || value === null || value === "") return undefined;
@@ -65,6 +66,29 @@ function validateChatRequest(body) {
     return { ok: false, status: 400, error: "agentTokenId must be a non-negative integer." };
   }
 
+  let contextTokenIds = [];
+  if (body.contextTokenIds !== undefined) {
+    if (!Array.isArray(body.contextTokenIds)) {
+      return { ok: false, status: 400, error: "contextTokenIds must be an array of non-negative integers." };
+    }
+    if (body.contextTokenIds.length > MAX_CONTEXT_TOKENS) {
+      return {
+        ok: false,
+        status: 400,
+        error: `contextTokenIds exceeds max length of ${MAX_CONTEXT_TOKENS}.`,
+      };
+    }
+    const deduped = new Set();
+    for (const value of body.contextTokenIds) {
+      const tokenId = Number(value);
+      if (!Number.isInteger(tokenId) || tokenId < 0) {
+        return { ok: false, status: 400, error: "contextTokenIds must be an array of non-negative integers." };
+      }
+      deduped.add(tokenId);
+    }
+    contextTokenIds = Array.from(deduped);
+  }
+
   const temperature = toNumberOrUndefined(body.temperature);
   if (temperature !== undefined && (temperature < 0 || temperature > 2)) {
     return { ok: false, status: 400, error: "temperature must be between 0 and 2." };
@@ -85,6 +109,7 @@ function validateChatRequest(body) {
     data: {
       walletAddress,
       messages,
+      contextTokenIds,
       agentTokenId,
       model: model || undefined,
       temperature,

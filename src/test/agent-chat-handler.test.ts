@@ -44,6 +44,7 @@ describe("createAgentChatHandler", () => {
   const baseBody = {
     walletAddress: "0x1111111111111111111111111111111111111111",
     messages: [{ role: "user", content: "hello" }],
+    contextTokenIds: [12, 13],
     stream: false,
   };
 
@@ -66,7 +67,28 @@ describe("createAgentChatHandler", () => {
     expect(res.jsonPayload).toMatchObject({
       model: "llama3.1:8b",
       content: "hello from local model",
+      contextTokenIds: [12, 13],
     });
+  });
+
+  it("returns 400 for invalid contextTokenIds", async () => {
+    const deps = makeDeps();
+    const handler = createAgentChatHandler(deps);
+    const req = {
+      body: {
+        ...baseBody,
+        contextTokenIds: [1, -4],
+      },
+      headers: {},
+      ip: "127.0.0.1",
+      on: vi.fn(),
+    };
+    const res = makeRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(400);
+    expect((res.jsonPayload as { error: string }).error).toContain("contextTokenIds");
   });
 
   it("returns 403 for unauthorized wallet", async () => {
@@ -129,5 +151,28 @@ describe("createAgentChatHandler", () => {
 
     await handler(req, res);
     expect(res.statusCode).toBe(503);
+  });
+
+  it("does not leak raw model error details", async () => {
+    const deps = makeDeps();
+    deps.ollamaClient.chat = vi.fn(async () => {
+      throw new Error("prompt leak: ssn=111-22-3333");
+    });
+    const handler = createAgentChatHandler(deps);
+    const req = {
+      body: baseBody,
+      headers: {},
+      ip: "127.0.0.1",
+      on: vi.fn(),
+    };
+    const res = makeRes();
+
+    await handler(req, res);
+
+    expect(res.statusCode).toBe(500);
+    expect((res.jsonPayload as { error: string }).error).not.toContain("ssn");
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("Unexpected agent error.")
+    );
   });
 });

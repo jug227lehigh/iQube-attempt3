@@ -8,6 +8,7 @@ export interface AgentChatMessage {
 export interface StreamAgentChatRequest {
   walletAddress: string;
   messages: AgentChatMessage[];
+  contextTokenIds?: number[];
   agentTokenId?: number;
   model?: string;
   temperature?: number;
@@ -50,6 +51,7 @@ export async function streamAgentChat(
     body: JSON.stringify({
       walletAddress: input.walletAddress,
       messages: input.messages,
+      contextTokenIds: input.contextTokenIds,
       agentTokenId: input.agentTokenId,
       model: input.model,
       temperature: input.temperature,
