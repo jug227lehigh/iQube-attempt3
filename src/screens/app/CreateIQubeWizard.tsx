@@ -834,10 +834,11 @@ export default function CreateIQubeWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <div className="pt-28 pb-20 px-10">
+      <div className="pt-28 pb-16 px-8">
         <div className="max-w-4xl mx-auto">
+          <div className="rounded-3xl border border-slate-200 bg-white px-8 py-8 shadow-sm">
           {!address && (
             <div className="mb-8 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
               Connect your wallet before minting. You can fill in the form first.
@@ -864,6 +865,7 @@ export default function CreateIQubeWizard() {
             <NavButtons step={step} onBack={back} onNext={next}
               nextLabel={step === 2 ? "Review" : "Continue"} nextDisabled={!canAdvance} />
           )}
+          </div>
         </div>
       </div>
     </div>

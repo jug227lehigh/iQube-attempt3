@@ -61,12 +61,12 @@ export default function MyIQubes() {
   }, [address]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <div className="pt-28 pb-20 px-10">
+      <div className="pt-28 pb-16 px-8">
         <div className="max-w-5xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My iQubes</h1>
-          <p className="text-gray-500 text-base mb-10">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">My iQubes</h1>
+          <p className="text-slate-500 text-base mb-8">
             All iQubes owned by your connected wallet.
           </p>
 
@@ -111,7 +111,7 @@ export default function MyIQubes() {
                 return (
                   <div
                     key={q.token_id}
-                    className="rounded-2xl border-2 border-gray-200 p-6 hover:border-gray-300 transition-colors"
+                    className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-4">

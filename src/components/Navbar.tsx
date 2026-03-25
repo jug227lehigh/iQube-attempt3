@@ -13,20 +13,21 @@ const NAV_LINKS = [
 export default function Navbar() {
   const { address, isConnecting, connect, disconnect } = useWallet();
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-10 py-5 bg-white border-b border-gray-200">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200/80 bg-white/85 backdrop-blur-md">
+      <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-8">
       <div className="flex items-center gap-10">
-        <span className="text-xl font-bold text-gray-900 tracking-tight">iQube</span>
-        <div className="flex items-center gap-1">
+        <span className="text-xl font-bold text-slate-900 tracking-tight">iQube</span>
+        <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
               end={link.to === "/"}
               className={({ isActive }) =>
-                `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                `px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
                 }`
               }
             >
@@ -38,12 +39,12 @@ export default function Navbar() {
       <div>
         {address ? (
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500 font-mono">
+            <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 font-mono">
               {address.slice(0, 6)}…{address.slice(-4)}
             </span>
             <button
               onClick={disconnect}
-              className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-300 hover:bg-gray-100 transition-colors"
+              className="h-10 px-4 rounded-lg text-sm font-medium text-slate-600 border border-slate-300 hover:bg-slate-100 transition-colors"
             >
               Disconnect
             </button>
@@ -52,11 +53,12 @@ export default function Navbar() {
           <button
             onClick={connect}
             disabled={isConnecting}
-            className="px-5 py-2 rounded-lg text-sm font-semibold bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+            className="h-10 px-5 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
           >
             {isConnecting ? "Connecting…" : "Connect Wallet"}
           </button>
         )}
+      </div>
       </div>
     </nav>
   );

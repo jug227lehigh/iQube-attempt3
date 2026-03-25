@@ -68,81 +68,83 @@ export default function TransferQube() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <div className="pt-28 pb-20 px-10">
+      <div className="pt-28 pb-16 px-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Transfer iQube</h1>
-          <p className="text-gray-500 text-base mb-10">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Transfer iQube</h1>
+          <p className="text-slate-500 text-base mb-8">
             Send an iQube you own to another wallet address.
           </p>
 
-          {!address && (
-            <div className="mb-8 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
-              Connect your wallet to transfer an iQube.
-            </div>
-          )}
-
-          <div className="space-y-6 mb-8">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Token ID</label>
-              <input
-                type="number"
-                min={0}
-                value={tokenId}
-                onChange={(e) => { setTokenId(e.target.value); setError(""); }}
-                placeholder="e.g. 1"
-                className="w-full px-5 py-4 rounded-xl bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 text-base focus:outline-none focus:border-black transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Recipient Address</label>
-              <input
-                type="text"
-                value={recipient}
-                onChange={(e) => { setRecipient(e.target.value); setError(""); }}
-                placeholder="0x..."
-                className="w-full px-5 py-4 rounded-xl bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 text-base font-mono focus:outline-none focus:border-black transition-colors"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={handleTransfer}
-            disabled={isLoading || !address}
-            className="w-full flex items-center justify-center gap-2 py-5 rounded-2xl text-base font-bold bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <><Loader2 size={18} className="animate-spin" /> Transferring…</>
-            ) : (
-              <><Send size={18} /> Transfer iQube</>
-            )}
-          </button>
-
-          {/* Error */}
-          {error && (
-            <div className="mt-8 flex items-center gap-3 px-5 py-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-              <AlertTriangle size={18} /> {error}
-            </div>
-          )}
-
-          {/* Success */}
-          {txHash && (
-            <div className="mt-8 px-5 py-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
-              <div className="flex items-center gap-2 font-semibold mb-1">
-                <CheckCircle size={18} /> Transfer successful!
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            {!address && (
+              <div className="mb-8 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+                Connect your wallet to transfer an iQube.
               </div>
-              <a
-                href={`https://amoy.polygonscan.com/tx/${txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline font-semibold"
-              >
-                View transaction ↗
-              </a>
+            )}
+
+            <div className="space-y-6 mb-8">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Token ID</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={tokenId}
+                  onChange={(e) => { setTokenId(e.target.value); setError(""); }}
+                  placeholder="e.g. 1"
+                  className="w-full px-5 py-4 rounded-xl bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 text-base focus:outline-none focus:border-black transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Recipient Address</label>
+                <input
+                  type="text"
+                  value={recipient}
+                  onChange={(e) => { setRecipient(e.target.value); setError(""); }}
+                  placeholder="0x..."
+                  className="w-full px-5 py-4 rounded-xl bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 text-base font-mono focus:outline-none focus:border-black transition-colors"
+                />
+              </div>
             </div>
-          )}
+
+            <button
+              onClick={handleTransfer}
+              disabled={isLoading || !address}
+              className="w-full flex items-center justify-center gap-2 py-5 rounded-2xl text-base font-bold bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <><Loader2 size={18} className="animate-spin" /> Transferring…</>
+              ) : (
+                <><Send size={18} /> Transfer iQube</>
+              )}
+            </button>
+
+            {/* Error */}
+            {error && (
+              <div className="mt-8 flex items-center gap-3 px-5 py-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                <AlertTriangle size={18} /> {error}
+              </div>
+            )}
+
+            {/* Success */}
+            {txHash && (
+              <div className="mt-8 px-5 py-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
+                <div className="flex items-center gap-2 font-semibold mb-1">
+                  <CheckCircle size={18} /> Transfer successful!
+                </div>
+                <a
+                  href={`https://amoy.polygonscan.com/tx/${txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-semibold"
+                >
+                  View transaction ↗
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

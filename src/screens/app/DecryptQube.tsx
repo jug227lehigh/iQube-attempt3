@@ -183,23 +183,24 @@ export default function DecryptQube() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <div className="pt-28 pb-20 px-10">
+      <div className="pt-28 pb-16 px-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Decrypt iQube</h1>
-          <p className="text-gray-500 text-base mb-10">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Decrypt iQube</h1>
+          <p className="text-slate-500 text-base mb-8">
             Enter your token ID to verify ownership and decrypt your private data.
           </p>
 
-          {!address && (
-            <div className="mb-8 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
-              Connect your wallet to decrypt an iQube.
-            </div>
-          )}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            {!address && (
+              <div className="mb-8 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+                Connect your wallet to decrypt an iQube.
+              </div>
+            )}
 
-          {/* Input */}
-          <div className="mb-8">
+            {/* Input */}
+            <div className="mb-8">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Token ID</label>
             <div className="flex gap-4">
               <input
@@ -224,21 +225,21 @@ export default function DecryptQube() {
             </div>
           </div>
 
-          {/* Error */}
-          {error && (
-            <div className="mb-8 flex items-center gap-3 px-5 py-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-              <AlertTriangle size={18} /> {error}
-            </div>
-          )}
-          {notice && (
-            <div className="mb-8 flex items-center gap-3 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
-              <CheckCircle size={18} /> {notice}
-            </div>
-          )}
+            {/* Error */}
+            {error && (
+              <div className="mb-8 flex items-center gap-3 px-5 py-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                <AlertTriangle size={18} /> {error}
+              </div>
+            )}
+            {notice && (
+              <div className="mb-8 flex items-center gap-3 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+                <CheckCircle size={18} /> {notice}
+              </div>
+            )}
 
-          {/* Metadata summary */}
-          {metadata && (
-            <div className="mb-8 rounded-2xl border-2 border-gray-200 divide-y divide-gray-100">
+            {/* Metadata summary */}
+            {metadata && (
+              <div className="mb-8 rounded-2xl border-2 border-gray-200 divide-y divide-gray-100">
               <div className="px-6 py-4 flex items-center gap-2 text-sm font-semibold text-gray-900">
                 <Lock size={16} /> iQube Metadata
               </div>
@@ -254,12 +255,12 @@ export default function DecryptQube() {
                   <span className="text-sm font-semibold text-gray-900">{String(row.value)}</span>
                 </div>
               ))}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* Decrypted data */}
-          {decryptedData && (
-            <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50">
+            {/* Decrypted data */}
+            {decryptedData && (
+              <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50">
               <div className="px-6 py-4 flex items-center gap-2 text-sm font-semibold text-emerald-800 border-b border-emerald-200">
                 <Unlock size={16} /> Decrypted Private Data
               </div>
@@ -274,8 +275,9 @@ export default function DecryptQube() {
               <div className="px-6 py-3 flex items-center gap-2 text-xs text-emerald-600 border-t border-emerald-200">
                 <CheckCircle size={14} /> Decrypted successfully after wallet authorization.
               </div>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

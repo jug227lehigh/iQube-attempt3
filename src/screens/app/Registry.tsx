@@ -81,12 +81,12 @@ export default function Registry() {
   });
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50">
       <Navbar />
-      <div className="pt-28 pb-20 px-10">
+      <div className="pt-28 pb-16 px-8">
         <div className="max-w-5xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">iQube Registry</h1>
-          <p className="text-gray-500 text-base mb-10">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">iQube Registry</h1>
+          <p className="text-slate-500 text-base mb-8">
             Browse public iQubes minted on the network.
           </p>
 
@@ -97,7 +97,7 @@ export default function Registry() {
           )}
 
           {/* Filters */}
-          <div className="flex flex-wrap items-center gap-4 mb-8">
+          <div className="flex flex-wrap items-center gap-4 mb-8 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="relative flex-1 min-w-[200px]">
               <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -159,20 +159,20 @@ export default function Registry() {
 
           {/* Results count */}
           {!isLoading && filtered.length > 0 && (
-            <p className="text-sm text-gray-400 mb-4">
+            <p className="text-sm text-slate-500 mb-4">
               {filtered.length} iQube{filtered.length !== 1 ? "s" : ""} found
             </p>
           )}
 
           {/* Grid */}
           {filtered.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filtered.map((q) => {
                 const typeMeta = TYPE_ICONS[q.iqube_type] ?? TYPE_ICONS.DataQube;
                 return (
                   <div
                     key={q.token_id}
-                    className="rounded-2xl border-2 border-gray-200 p-6 hover:border-gray-300 transition-colors"
+                    className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all"
                   >
                     <div className="flex items-start gap-3 mb-4">
                       <div
