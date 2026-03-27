@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Database, FileText, Wrench, Brain, Bot,
   Lock, ChevronRight, ChevronLeft, Plus, Trash2,
   Eye, EyeOff, AlertTriangle, CheckCircle, XCircle,
-  Check
+  Check, GitFork,
 } from "lucide-react";
 import { useWallet } from "../../context/WalletContext";
 import { useMintQube } from "../../hooks/contractHooks";
@@ -613,6 +614,7 @@ function Step5Review({ state, onMintPinata, onMintAutoDrive, isSubmitting, mintE
 
 export default function CreateIQubeWizard() {
   const { address } = useWallet();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>(0);
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -620,7 +622,33 @@ export default function CreateIQubeWizard() {
   const [txHash, setTxHash] = useState("");
   const [keyStored, setKeyStored] = useState<boolean | null>(null);
 
+  const isFork = searchParams.get("fork") === "true";
+  const sourceTokenId = searchParams.get("sourceTokenId");
+
   const { mintQube, transactionResult, transactionError } = useMintQube();
+
+  // Pre-fill wizard from fork query params
+  useEffect(() => {
+    if (!isFork) return;
+    const iQubeType = searchParams.get("iQubeType") as IQubeType | null;
+    const category = searchParams.get("category") as IQubeCategory | null;
+    const title = searchParams.get("title") || "";
+    const description = searchParams.get("description") || "";
+
+    if (iQubeType) {
+      const fields = category ? getDefaultFields(iQubeType, category) : [];
+      setState(s => ({
+        ...s,
+        iQubeType,
+        category,
+        title,
+        description,
+        fields,
+      }));
+      // Jump to step 1 (details) since type is pre-filled
+      setStep(1);
+    }
+  }, [isFork, searchParams]);
 
   useEffect(() => {
     if (transactionResult?.transactionHash) setTxHash(transactionResult.transactionHash);
@@ -727,6 +755,9 @@ export default function CreateIQubeWizard() {
           { trait_type: "blakQube",     value: encryptedBlakQube },
           ...(parsedAllowedAddresses.length > 0
             ? [{ trait_type: "allowedAddresses", value: parsedAllowedAddresses }] as const
+            : []),
+          ...(isFork && sourceTokenId
+            ? [{ trait_type: "forkedFrom", value: Number(sourceTokenId) }] as const
             : []),
         ],
       };
@@ -839,6 +870,11 @@ export default function CreateIQubeWizard() {
       <div className="pt-28 pb-16 px-8">
         <div className="max-w-4xl mx-auto">
           <div className="rounded-3xl border border-slate-200 bg-white px-8 py-8 shadow-sm">
+          {isFork && sourceTokenId && (
+            <div className="mb-8 px-5 py-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-sm flex items-center gap-2">
+              <GitFork size={16} /> Forking from iQube #{sourceTokenId}. Customize the details below and mint your own version.
+            </div>
+          )}
           {!address && (
             <div className="mb-8 px-5 py-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
               Connect your wallet before minting. You can fill in the form first.

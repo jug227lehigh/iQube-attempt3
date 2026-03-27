@@ -109,9 +109,10 @@ export default function MyIQubes() {
               {iqubes.map((q) => {
                 const typeMeta = TYPE_ICONS[q.iqube_type] ?? TYPE_ICONS.DataQube;
                 return (
-                  <div
+                  <Link
                     key={q.token_id}
-                    className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all"
+                    to={`/iqube/${q.token_id}`}
+                    className="block rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-4">
@@ -147,30 +148,28 @@ export default function MyIQubes() {
 
                       <div className="flex items-center gap-2 shrink-0">
                         {q.is_encrypted && (
-                          <Link
-                            to={`/decrypt?tokenId=${q.token_id}`}
+                          <span
+                            onClick={(e) => { e.preventDefault(); window.location.href = `/decrypt?tokenId=${q.token_id}`; }}
                             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
                           >
                             <Unlock size={14} /> Decrypt
-                          </Link>
+                          </span>
                         )}
-                        <Link
-                          to={`/transfer?tokenId=${q.token_id}`}
+                        <span
+                          onClick={(e) => { e.preventDefault(); window.location.href = `/transfer?tokenId=${q.token_id}`; }}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
                         >
                           <Send size={14} /> Transfer
-                        </Link>
-                        <a
-                          href={`https://amoy.polygonscan.com/tx/${q.tx_hash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        </span>
+                        <span
+                          onClick={(e) => { e.preventDefault(); window.open(`https://amoy.polygonscan.com/tx/${q.tx_hash}`, "_blank"); }}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
                         >
                           <ExternalLink size={14} /> Tx
-                        </a>
+                        </span>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

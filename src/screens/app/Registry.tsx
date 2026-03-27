@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   Database, FileText, Wrench, Brain, Bot,
   Search, Filter, ExternalLink, Loader2, Globe,
+  Lock, ShoppingCart, KeyRound,
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "../../utilities/supabase";
 import Navbar from "../../components/Navbar";
@@ -19,6 +21,7 @@ interface RegistryRow {
   category: string;
   visibility: string;
   business_model: string;
+  price: string | null;
   risk_score: number;
   is_encrypted: boolean;
   created_at: string;
@@ -169,10 +172,12 @@ export default function Registry() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filtered.map((q) => {
                 const typeMeta = TYPE_ICONS[q.iqube_type] ?? TYPE_ICONS.DataQube;
+                const isFree = q.business_model === "Free" || q.business_model === "Donate";
                 return (
-                  <div
+                  <Link
                     key={q.token_id}
-                    className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all"
+                    to={`/iqube/${q.token_id}`}
+                    className="block rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer"
                   >
                     <div className="flex items-start gap-3 mb-4">
                       <div
@@ -204,28 +209,42 @@ export default function Registry() {
                       <span className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600">
                         {q.category}
                       </span>
-                      <span className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600">
-                        {q.business_model}
-                      </span>
+                      {q.is_encrypted && (
+                        <span className="text-xs px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 flex items-center gap-1">
+                          <Lock size={10} /> Encrypted
+                        </span>
+                      )}
                       <span className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 text-gray-500">
                         Risk {q.risk_score}/10
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-gray-400">
+                    {/* Price / action hint */}
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+                        {isFree ? (
+                          <><KeyRound size={14} className="text-emerald-600" /> Free</>
+                        ) : (
+                          <><ShoppingCart size={14} className="text-blue-600" /> {q.price ? `${q.price} POL` : q.business_model}</>
+                        )}
+                      </span>
+                      <span className="text-xs text-gray-400 font-medium">
+                        View details →
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-gray-100">
                       <span className="font-mono">
                         Minter: {q.minter_address.slice(0, 6)}…{q.minter_address.slice(-4)}
                       </span>
-                      <a
-                        href={`https://amoy.polygonscan.com/tx/${q.tx_hash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <span
+                        onClick={(e) => { e.preventDefault(); window.open(`https://amoy.polygonscan.com/tx/${q.tx_hash}`, "_blank"); }}
                         className="flex items-center gap-1 text-gray-500 hover:text-black transition-colors"
                       >
                         <ExternalLink size={12} /> View tx
-                      </a>
+                      </span>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
