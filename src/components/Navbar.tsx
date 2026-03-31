@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { to: "/decrypt", label: "Decrypt" },
   { to: "/transfer", label: "Transfer" },
   { to: "/registry", label: "Registry" },
+  { to: "/dvn-test", label: "DVN Test" },
   { to: "/agent-chat", label: "Agent Chat" },
 ];
 

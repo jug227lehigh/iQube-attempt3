@@ -11,6 +11,7 @@ import MyIQubes from './screens/app/MyIQubes.tsx'
 import Registry from './screens/app/Registry.tsx'
 import QubeDetail from './screens/app/QubeDetail.tsx'
 import AgentChat from './screens/app/AgentChat.tsx'
+import DVNTestPanel from './screens/app/DVNTestPanel.tsx'
 
 const router = createBrowserRouter([
   { path: '/', element: <CreateIQubeWizard /> },
@@ -20,6 +21,7 @@ const router = createBrowserRouter([
   { path: '/registry', element: <Registry /> },
   { path: '/iqube/:tokenId', element: <QubeDetail /> },
   { path: '/agent-chat', element: <AgentChat /> },
+  { path: '/dvn-test', element: <DVNTestPanel /> },
 ])
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

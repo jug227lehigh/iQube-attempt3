@@ -7,6 +7,7 @@ const { registerAgentRoutes } = require("./server/agent/routes/chat.cjs");
 const { createOllamaClient } = require("./server/agent/providers/ollama.cjs");
 const { authorizeAgentUse } = require("./server/agent/auth/authorizeAgentUse.cjs");
 const { createRateLimiter } = require("./server/agent/rateLimiter.cjs");
+const { registerDVNRoutes } = require("./server/ops/dvn/routes.cjs");
 
 const app = express();
 app.use(
@@ -44,6 +45,7 @@ registerAgentRoutes(app, {
   rateLimiter: agentRateLimiter,
   logger: console,
 });
+registerDVNRoutes(app);
 
 app.get("/", (req, res) => {
   res.send("Auto-Drive + Agent helper server is running");
