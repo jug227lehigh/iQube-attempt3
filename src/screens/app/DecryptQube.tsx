@@ -12,6 +12,8 @@ import {
 } from "../../utilities/keyWrapping";
 import Navbar from "../../components/Navbar";
 
+const API_BASE_URL = import.meta.env.VITE_AGENT_API_BASE_URL || "http://localhost:4000";
+
 function buildMetadataFetchUrl(rawUrl: string | null): string {
   if (!rawUrl) {
     throw new Error("Empty metaQube URL on chain");
@@ -29,7 +31,7 @@ function buildMetadataFetchUrl(rawUrl: string | null): string {
       const segments = parsed.pathname.split("/").filter(Boolean);
       const cid = segments[segments.length - 1] ?? "";
       const gatewayUrl = `https://gateway.autonomys.xyz/file/${cid}`;
-      return `http://localhost:4000/api/autodrive-metadata?url=${encodeURIComponent(
+      return `${API_BASE_URL}/api/autodrive-metadata?url=${encodeURIComponent(
         gatewayUrl
       )}`;
     }
@@ -38,7 +40,7 @@ function buildMetadataFetchUrl(rawUrl: string | null): string {
   } catch {
     const cid = rawUrl.replace(/^ipfs:\/\//, "").split("/").pop() ?? "";
     const gatewayUrl = `https://gateway.autonomys.xyz/file/${cid}`;
-    return `http://localhost:4000/api/autodrive-metadata?url=${encodeURIComponent(
+    return `${API_BASE_URL}/api/autodrive-metadata?url=${encodeURIComponent(
       gatewayUrl
     )}`;
   }

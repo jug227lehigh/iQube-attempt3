@@ -125,6 +125,7 @@ interface WizardState {
 }
 
 type StorageProvider = "pinata" | "autodrive";
+const API_BASE_URL = import.meta.env.VITE_AGENT_API_BASE_URL || "http://localhost:4000";
 
 const INITIAL_STATE: WizardState = {
   iQubeType: null,
@@ -679,7 +680,7 @@ export default function CreateIQubeWizard() {
       return { metaQubeLocation, storageHash: upload.IpfsHash };
     }
 
-    const response = await fetch("http://localhost:4000/api/autodrive-upload", {
+    const response = await fetch(`${API_BASE_URL}/api/autodrive-upload`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ metadata: metadataJson }),

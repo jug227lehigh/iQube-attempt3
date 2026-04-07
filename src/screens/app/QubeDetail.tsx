@@ -38,6 +38,7 @@ interface IQubeRow {
 }
 
 type AccessLevel = "owner" | "shared" | "purchased" | "none";
+const API_BASE_URL = import.meta.env.VITE_AGENT_API_BASE_URL || "http://localhost:4000";
 
 const TYPE_META: Record<IQubeType, { icon: React.ReactNode; color: string; bg: string }> = {
   DataQube:    { icon: <Database size={24} />,  color: "#2563eb", bg: "#eff6ff" },
@@ -64,13 +65,13 @@ function buildMetadataFetchUrl(rawUrl: string | null): string {
       const segments = parsed.pathname.split("/").filter(Boolean);
       const cid = segments[segments.length - 1] ?? "";
       const gatewayUrl = `https://gateway.autonomys.xyz/file/${cid}`;
-      return `http://localhost:4000/api/autodrive-metadata?url=${encodeURIComponent(gatewayUrl)}`;
+      return `${API_BASE_URL}/api/autodrive-metadata?url=${encodeURIComponent(gatewayUrl)}`;
     }
     return parsed.toString();
   } catch {
     const cid = rawUrl.replace(/^ipfs:\/\//, "").split("/").pop() ?? "";
     const gatewayUrl = `https://gateway.autonomys.xyz/file/${cid}`;
-    return `http://localhost:4000/api/autodrive-metadata?url=${encodeURIComponent(gatewayUrl)}`;
+    return `${API_BASE_URL}/api/autodrive-metadata?url=${encodeURIComponent(gatewayUrl)}`;
   }
 }
 
