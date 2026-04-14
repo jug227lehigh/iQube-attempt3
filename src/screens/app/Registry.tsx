@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Database, FileText, Wrench, Brain, Bot,
   Search, Filter, ExternalLink, Loader2, Globe,
-  Lock, ShoppingCart, KeyRound,
+  Lock, ShoppingCart, KeyRound, Users, GitFork,
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "../../utilities/supabase";
 import Navbar from "../../components/Navbar";
@@ -15,6 +15,7 @@ interface RegistryRow {
   minter_address: string;
   tx_hash: string;
   ipfs_url: string;
+  ipfs_hash: string | null;
   title: string;
   description: string;
   iqube_type: IQubeType;
@@ -22,10 +23,60 @@ interface RegistryRow {
   visibility: string;
   business_model: string;
   price: string | null;
-  risk_score: number;
+  risk_score: number | null;
   is_encrypted: boolean;
+  allowed_addresses: string[] | null;
   created_at: string;
 }
+
+function displayCategory(c: string | null | undefined): string {
+  return c && c.trim() ? c : "Uncategorized";
+}
+
+function displayRisk(s: number | null | undefined): string {
+  return s == null ? "—" : `${s}/10`;
+}
+
+function displayPriceOrModel(
+  model: string | null | undefined,
+  price: string | null | undefined,
+  isFree: boolean,
+): string {
+  if (isFree) return "Free";
+  if (price) return `${price} POL`;
+  return model || "—";
+}
+
+function shortAddr(a: string | null | undefined): string {
+  if (!a) return "—";
+  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+function relativeDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  const diffWk = Math.floor(diffDay / 7);
+  if (diffWk < 5) return `${diffWk}w ago`;
+  const diffMo = Math.floor(diffDay / 30);
+  if (diffMo < 12) return `${diffMo}mo ago`;
+  const diffYr = Math.floor(diffDay / 365);
+  return `${diffYr}y ago`;
+}
+
+const VISIBILITY_META: Record<string, { label: string; icon: React.ReactNode; bg: string; color: string }> = {
+  public:         { label: "Public",       icon: <Globe size={10} />, bg: "#ecfdf5", color: "#047857" },
+  "semi-private": { label: "Semi-private", icon: <Users size={10} />, bg: "#eff6ff", color: "#1d4ed8" },
+  private:        { label: "Private",      icon: <Lock size={10} />,  bg: "#f3f4f6", color: "#4b5563" },
+};
 
 const TYPE_ICONS: Record<IQubeType, { icon: React.ReactNode; color: string; bg: string }> = {
   DataQube:    { icon: <Database size={20} />,  color: "#2563eb", bg: "#eff6ff" },
@@ -74,9 +125,9 @@ export default function Registry() {
     if (searchQuery) {
       const s = searchQuery.toLowerCase();
       if (
-        !q.title.toLowerCase().includes(s) &&
-        !q.description.toLowerCase().includes(s) &&
-        !q.category.toLowerCase().includes(s)
+        !(q.title ?? "").toLowerCase().includes(s) &&
+        !(q.description ?? "").toLowerCase().includes(s) &&
+        !(q.category ?? "").toLowerCase().includes(s)
       )
         return false;
     }
@@ -173,6 +224,12 @@ export default function Registry() {
               {filtered.map((q) => {
                 const typeMeta = TYPE_ICONS[q.iqube_type] ?? TYPE_ICONS.DataQube;
                 const isFree = q.business_model === "Free" || q.business_model === "Donate";
+                const visMeta = VISIBILITY_META[q.visibility] ?? VISIBILITY_META.public;
+                const isTransferred =
+                  q.owner_address &&
+                  q.minter_address &&
+                  q.owner_address.toLowerCase() !== q.minter_address.toLowerCase();
+                const created = relativeDate(q.created_at);
                 return (
                   <Link
                     key={q.token_id}
@@ -186,15 +243,21 @@ export default function Registry() {
                       >
                         {typeMeta.icon}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-base font-bold text-gray-900 truncate">{q.title}</h3>
+                          <h3 className="text-base font-bold text-gray-900 truncate">
+                            {q.title || `iQube #${q.token_id}`}
+                          </h3>
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">
                             #{q.token_id}
                           </span>
                         </div>
-                        {q.description && (
+                        {q.description ? (
                           <p className="text-sm text-gray-500 mt-1 line-clamp-2">{q.description}</p>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic mt-1 line-clamp-2">
+                            No description provided
+                          </p>
                         )}
                       </div>
                     </div>
@@ -207,7 +270,13 @@ export default function Registry() {
                         {q.iqube_type}
                       </span>
                       <span className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600">
-                        {q.category}
+                        {displayCategory(q.category)}
+                      </span>
+                      <span
+                        className="text-xs px-2.5 py-1 rounded-lg flex items-center gap-1"
+                        style={{ backgroundColor: visMeta.bg, color: visMeta.color }}
+                      >
+                        {visMeta.icon} {visMeta.label}
                       </span>
                       {q.is_encrypted && (
                         <span className="text-xs px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 flex items-center gap-1">
@@ -215,8 +284,13 @@ export default function Registry() {
                         </span>
                       )}
                       <span className="text-xs px-2.5 py-1 rounded-lg bg-gray-100 text-gray-500">
-                        Risk {q.risk_score}/10
+                        Risk {displayRisk(q.risk_score)}
                       </span>
+                      {isTransferred && (
+                        <span className="text-xs px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 flex items-center gap-1">
+                          <GitFork size={10} /> Transferred
+                        </span>
+                      )}
                     </div>
 
                     {/* Price / action hint */}
@@ -225,7 +299,7 @@ export default function Registry() {
                         {isFree ? (
                           <><KeyRound size={14} className="text-emerald-600" /> Free</>
                         ) : (
-                          <><ShoppingCart size={14} className="text-blue-600" /> {q.price ? `${q.price} POL` : q.business_model}</>
+                          <><ShoppingCart size={14} className="text-blue-600" /> {displayPriceOrModel(q.business_model, q.price, isFree)}</>
                         )}
                       </span>
                       <span className="text-xs text-gray-400 font-medium">
@@ -235,13 +309,16 @@ export default function Registry() {
 
                     <div className="flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-gray-100">
                       <span className="font-mono">
-                        Minter: {q.minter_address.slice(0, 6)}…{q.minter_address.slice(-4)}
+                        Minter: {shortAddr(q.minter_address)}
                       </span>
-                      <span
-                        onClick={(e) => { e.preventDefault(); window.open(`https://amoy.polygonscan.com/tx/${q.tx_hash}`, "_blank"); }}
-                        className="flex items-center gap-1 text-gray-500 hover:text-black transition-colors"
-                      >
-                        <ExternalLink size={12} /> View tx
+                      <span className="flex items-center gap-3">
+                        {created && <span>{created}</span>}
+                        <span
+                          onClick={(e) => { e.preventDefault(); window.open(`https://amoy.polygonscan.com/tx/${q.tx_hash}`, "_blank"); }}
+                          className="flex items-center gap-1 text-gray-500 hover:text-black transition-colors"
+                        >
+                          <ExternalLink size={12} /> View tx
+                        </span>
                       </span>
                     </div>
                   </Link>
