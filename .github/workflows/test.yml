@@ -1,0 +1,121 @@
+name: Test
+
+on:
+  push:
+    branches: [main, testing]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_load:
+        description: 'Run load tests (slow)'
+        required: false
+        default: 'false'
+
+jobs:
+  unit:
+    name: Unit (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:coverage
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+
+  contract:
+    name: Contract (Foundry)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - run: forge --version
+      - name: Install OpenZeppelin
+        working-directory: contract
+        run: forge install --no-git --shallow OpenZeppelin/openzeppelin-contracts@v5.0.2
+      - name: Remove OZ certora harnesses (unused, referenced missing files)
+        working-directory: contract
+        run: rm -rf lib/openzeppelin-contracts/certora lib/openzeppelin-contracts/scripts
+      - name: Build
+        working-directory: contract
+        run: forge build
+      - name: Test
+        working-directory: contract
+        run: forge test -vv
+      - name: Coverage
+        working-directory: contract
+        run: forge coverage --report summary
+
+  integration:
+    name: Integration (Vitest + Anvil)
+    runs-on: ubuntu-latest
+    needs: contract
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - run: npm ci
+      - name: Build contracts
+        working-directory: contract
+        run: |
+          forge install --no-git --shallow OpenZeppelin/openzeppelin-contracts@v5.0.2
+          rm -rf lib/openzeppelin-contracts/certora lib/openzeppelin-contracts/scripts
+          forge build
+      - run: npm run test:integration
+
+  fault:
+    name: Fault injection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:fault
+
+  load:
+    name: Load (manual dispatch only)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_load == 'true' }}
+    needs: [contract, integration]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - run: npm ci
+      - name: Build contracts
+        working-directory: contract
+        run: |
+          forge install --no-git --shallow OpenZeppelin/openzeppelin-contracts@v5.0.2
+          rm -rf lib/openzeppelin-contracts/certora lib/openzeppelin-contracts/scripts
+          forge build
+      - name: Run load tests
+        run: LOAD_OPS=200 LOAD_WORKERS=8 npm run test:load
+      - name: Upload load reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-reports
+          path: reports/
